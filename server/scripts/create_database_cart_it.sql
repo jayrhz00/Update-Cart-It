@@ -1,0 +1,11 @@
+-- Jessie Hernandez 700775688
+-- Cart-It setup script (run once, before schema.sql)
+--
+-- STUDENT EXPLANATION:
+-- - This script creates the database container itself.
+-- - After creating the database, run schema.sql inside it to create tables.
+-- - In pgAdmin: open Query Tool on the postgres/default DB, run this file once.
+-- - If cart_it already exists, PostgreSQL will throw "already exists" (that is expected).
+--
+-- Step 1: create the Cart-It database.
+CREATE DATABASE cart_it;

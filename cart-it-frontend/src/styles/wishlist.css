@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Top nav + main (dashboard shell) */
+  .page-wrapper {
+    @apply flex min-h-screen flex-col bg-white;
+  }
+  .page-wrapper.dash-with-topnav {
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 26%, #fef9c3 68%, #fde047 100%);
+  }
+  .page-wrapper.dash-with-topnav::before {
+    content: "";
+    @apply pointer-events-none fixed inset-0 -z-10 opacity-40;
+    background: radial-gradient(ellipse 85% 55% at 50% 0%, #f9a8d4 0%, transparent 58%);
+  }
+
+  /* Main Area */
+  .detail-main {
+    @apply flex-1 min-w-0 overflow-y-auto bg-transparent p-6 md:p-10 lg:p-12;
+  }
+
+  /* Header & Stats */
+  .back-link { @apply flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-6; }
+  .wishlist-title { @apply text-4xl font-bold text-gray-900; }
+  .stats { @apply text-gray-500 text-sm mt-2 flex gap-2; }
+
+  /* Toolbar */
+  .toolbar { @apply flex flex-wrap gap-3 mt-6 mb-10; }
+  .tool-btn { 
+    @apply inline-flex items-center justify-center gap-2 min-h-[2.75rem] px-4 py-2 rounded-lg bg-white border border-gray-300 
+    text-gray-700 font-medium hover:bg-gray-100 transition-all shadow-sm text-sm; 
+  }
+  .tool-btn.edit {
+    @apply border-transparent bg-teal-600 text-white hover:bg-teal-700;
+  }
+
+  .toolbar-filter-wrap {
+    @apply inline-flex items-center gap-2 min-h-[2.75rem] pl-3 pr-2 rounded-lg bg-white border border-gray-300
+    text-gray-700 shadow-sm text-sm;
+  }
+  .toolbar-filter-select {
+    @apply min-w-[10.5rem] max-w-[14rem] border-0 bg-transparent py-2 text-sm font-medium text-gray-800
+    focus:ring-0 focus:outline-none cursor-pointer;
+  }
+
+  .wishlist-item-remove {
+    @apply absolute top-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full
+    border border-gray-200 bg-white/95 text-gray-600 shadow-sm
+    hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors
+    disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Item Grid */
+  .item-grid { @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6; }
+  .item-card { @apply bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow min-w-0; }
+  
+  .img-wrapper { @apply relative h-64 bg-gray-100; }
+  .img-wrapper img { @apply w-full h-full object-cover; }
+  .select-check { @apply absolute top-3 right-3 w-5 h-5 cursor-pointer; }
+
+  .item-details { @apply p-4; }
+  .store { @apply text-xs uppercase tracking-wider text-gray-400 font-semibold; }
+  .name { @apply font-bold text-gray-900 mt-1 break-words; }
+  .price { @apply font-bold text-gray-900 mt-2; }
+
+  /* ─── Wishlist detail — aligned with new slate shell ─── */
+  .wishlist-page {
+    @apply bg-brand-shell text-slate-900;
+  }
+  .wishlist-page.page-wrapper {
+    @apply bg-brand-shell;
+  }
+  .wishlist-page .detail-main {
+    @apply bg-transparent;
+  }
+  .wishlist-page .back-link {
+    @apply mb-6 font-medium text-slate-600 hover:text-teal-800;
+  }
+  .wishlist-page .wishlist-title {
+    @apply font-bold text-slate-900;
+  }
+  .wishlist-page .stats {
+    @apply mt-2 font-normal text-slate-600;
+  }
+  .wishlist-page .stats strong {
+    @apply font-semibold text-slate-900;
+  }
+  .wishlist-page .tool-btn {
+    @apply border border-slate-300 bg-white text-slate-800 shadow-sm backdrop-blur-sm hover:bg-slate-50;
+  }
+  .wishlist-page .tool-btn.edit {
+    @apply border-transparent bg-teal-600 text-white hover:bg-teal-700;
+  }
+  /* Light surface so the native <select> list shows dark labels on Edge/Windows (white-on-white bug when select used white text). */
+  .wishlist-page .toolbar-filter-wrap {
+    @apply bg-white border border-white/40 text-gray-900 shadow-md backdrop-blur-sm;
+  }
+  .wishlist-page .toolbar-filter-select {
+    @apply text-gray-900 font-medium;
+  }
+  .wishlist-page .toolbar-filter-select option {
+    background-color: #ffffff;
+    color: #111827;
+  }
+
+  .wishlist-members-strip {
+    @apply mb-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm;
+  }
+  .wishlist-members-title {
+    @apply text-sm font-semibold tracking-wide text-slate-900 mb-2;
+  }
+  .wishlist-members-pills {
+    @apply flex flex-wrap gap-2 items-center;
+  }
+  .wishlist-member-pill {
+    @apply rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-800 border border-slate-200;
+  }
+  .wishlist-member-pill--highlight {
+    @apply bg-blue-100 border-blue-200 text-blue-950 font-semibold;
+  }
+  .wishlist-members-empty {
+    @apply text-xs text-slate-600;
+  }
+
+  /* List-wide group chat — light card so body copy is always readable */
+  .wishlist-list-chat-panel {
+    @apply mt-6 mb-10 rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-lg text-left text-slate-900;
+  }
+  .wishlist-list-chat-heading {
+    @apply m-0 text-lg font-bold text-slate-900 tracking-tight;
+  }
+  .wishlist-list-chat-lead {
+    @apply mt-1 mb-3 text-sm text-slate-700 leading-snug;
+  }
+  .wishlist-list-chat-thread {
+    @apply max-h-52 md:max-h-64;
+  }
+
+  .wishlist-page .item-card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md;
+  }
+  .wishlist-page .store {
+    @apply text-teal-700/90;
+  }
+  .wishlist-page .name {
+    @apply text-slate-900;
+  }
+  .wishlist-page .price {
+    @apply text-teal-800;
+  }
+
+  /* Group chat under each card */
+  .wishlist-group-chat {
+    @apply mt-3 overflow-hidden rounded-xl border border-teal-100 bg-teal-50/50 text-left;
+  }
+  .wishlist-group-chat-summary {
+    @apply cursor-pointer list-none bg-teal-100/80 px-3 py-2 text-xs font-bold uppercase tracking-wide text-teal-900 hover:bg-teal-100;
+  }
+  .wishlist-group-chat-summary::-webkit-details-marker {
+    display: none;
+  }
+  .wishlist-group-chat-body {
+    @apply border-t border-teal-100/80 px-3 pb-3 pt-1;
+  }
+  .wishlist-group-chat-status,
+  .wishlist-group-chat-empty {
+    @apply text-xs text-slate-500 py-2;
+  }
+  .wishlist-group-chat-thread {
+    @apply max-h-40 overflow-y-auto space-y-2 mb-2;
+  }
+  .wishlist-group-chat-row {
+    @apply rounded-lg border border-slate-200 bg-white/95 px-2 py-1.5 text-xs;
+  }
+  .wishlist-group-chat-meta {
+    @apply flex flex-wrap gap-x-2 gap-y-0 items-baseline text-[10px] text-slate-500 mb-0.5;
+  }
+  .wishlist-group-chat-email {
+    @apply truncate max-w-[9rem] opacity-80;
+  }
+  .wishlist-group-chat-time {
+    @apply ml-auto text-[10px] text-slate-400;
+  }
+  .wishlist-group-chat-text {
+    @apply text-slate-800 whitespace-pre-wrap break-words;
+  }
+  .wishlist-group-chat-input {
+    @apply w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-800 placeholder:text-slate-400
+    focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500/30;
+  }
+  .wishlist-group-chat-send {
+    @apply mt-2 w-full rounded-lg py-1.5 text-xs font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50;
+    background: linear-gradient(180deg, #fce7f3 0%, #fbcfe8 100%);
+    color: #831843;
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    box-shadow: 0 1px 2px rgba(190, 24, 93, 0.08);
+  }
+  .wishlist-group-chat-send:hover:not(:disabled) {
+    background: linear-gradient(180deg, #fbcfe8 0%, #f9a8d4 100%);
+  }
+
+  .wishlist-page .tool-btn.tool-btn--pink {
+    @apply border border-pink-200 bg-gradient-to-b from-pink-50 to-pink-100 text-pink-950 shadow-sm hover:from-pink-100 hover:to-pink-200;
+  }
+
+  .wishlist-invite-msg {
+    @apply font-medium text-slate-700;
+  }
+
+  .wishlist-empty-grid-msg {
+    @apply text-base font-medium text-slate-600;
+  }
+}

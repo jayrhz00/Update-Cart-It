@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .landing-container {
+    @apply min-h-screen bg-slate-50 font-sans text-slate-900 antialiased;
+  }
+
+  .landing-header {
+    @apply border-b border-slate-200/80 bg-white/80 backdrop-blur-sm px-5 py-4;
+  }
+  .logo-img {
+    @apply h-16 w-auto object-contain;
+  }
+  .logo-img--full {
+    @apply h-[4.5rem] max-w-[200px] md:h-[5rem] md:max-w-[220px];
+  }
+
+  /* Hero: light pink → yellow gradient */
+  .hero-section {
+    @apply relative overflow-hidden py-28 text-center text-slate-900 md:py-36;
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 26%, #fef9c3 68%, #fde047 100%);
+  }
+  .hero-section::after {
+    content: "";
+    @apply pointer-events-none absolute inset-0 opacity-40;
+    background: radial-gradient(ellipse 85% 55% at 50% 0%, #f9a8d4 0%, transparent 58%);
+  }
+  .hero-overlay {
+    @apply hidden;
+  }
+  .hero-content {
+    @apply relative z-10 mx-auto max-w-3xl px-4;
+  }
+  .hero-title {
+    @apply mb-4 text-4xl font-extrabold tracking-tight md:text-5xl;
+  }
+  .hero-subtitle {
+    @apply mb-10 text-lg text-slate-700 md:text-xl;
+  }
+  .hero-buttons {
+    @apply flex flex-wrap justify-center gap-3;
+  }
+  .hero-extension-cta {
+    @apply mt-8 flex w-full justify-center md:mt-10;
+  }
+
+  .btn-register {
+    @apply rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 px-8 py-2.5 font-semibold text-white shadow-md transition hover:from-rose-600 hover:to-orange-600;
+  }
+  .btn-login {
+    @apply rounded-lg border-2 border-slate-800/25 bg-white/60 px-8 py-2.5 font-semibold text-slate-900 backdrop-blur-sm transition hover:border-slate-800/40 hover:bg-white/90;
+  }
+
+  .section-padding {
+    @apply bg-white px-6 py-20 md:px-8;
+  }
+  .section-title,
+  .landing-section-title {
+    @apply mb-2 text-center text-2xl font-bold text-slate-900;
+  }
+  .section-subtitle {
+    @apply mb-14 text-center text-slate-600;
+  }
+  .steps-grid {
+    @apply mx-auto grid max-w-5xl gap-8 text-left md:grid-cols-3 md:gap-10;
+  }
+  .step-card {
+    @apply space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-6 shadow-sm;
+  }
+  .step-number {
+    @apply bg-gradient-to-br from-fuchsia-400 to-orange-400 bg-clip-text text-5xl font-black text-transparent md:text-6xl;
+  }
+  .step-title {
+    @apply text-xl font-bold text-slate-900;
+  }
+  .step-desc {
+    @apply text-slate-600;
+  }
+
+  .features-section {
+    @apply border-t border-slate-200 bg-slate-50 px-6 py-20 md:px-8;
+  }
+  .features-section-inner {
+    @apply mx-auto max-w-7xl text-center;
+  }
+  .features-head {
+    @apply mx-auto mb-10 max-w-2xl text-center md:mb-14;
+  }
+  .features-main-title {
+    @apply mb-2 text-3xl font-bold text-slate-900;
+  }
+  .features-main-subtitle {
+    @apply text-slate-600;
+  }
+
+  /* “Why Choose” — bar chart + area curve */
+  .features-chart-panel {
+    @apply rounded-3xl border border-slate-200/90 bg-white p-4 shadow-xl shadow-rose-100/40 ring-1 ring-slate-100 sm:p-6 md:p-8;
+  }
+  .features-chart-main {
+    @apply min-w-0 flex-1 space-y-8 px-1 py-2 sm:px-2 md:px-3 md:py-3;
+  }
+  .features-chart-stage {
+    @apply relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-b from-white via-slate-50/90 to-slate-100/80 px-2 py-7 shadow-inner shadow-slate-200/40 sm:px-4 md:px-5 md:py-9;
+  }
+  .features-chart-bg {
+    @apply pointer-events-none absolute inset-2 opacity-[0.97];
+  }
+  .features-chart-area-svg {
+    @apply h-full w-full;
+  }
+  .features-chart-gridlines {
+    @apply pointer-events-none absolute inset-2 rounded-xl border border-slate-200/55 bg-[linear-gradient(to_top,rgba(148,163,184,0.11)_1px,transparent_1px)] bg-[length:100%_2.65rem] opacity-75;
+  }
+  .features-chart-bars-row {
+    @apply relative z-[1] mx-auto grid max-w-5xl list-none grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-6 lg:gap-x-3 xl:gap-x-5;
+  }
+  .features-chart-bar-slot {
+    @apply flex flex-col items-center text-center;
+  }
+  .features-chart-icon {
+    @apply mb-2.5 select-none text-2xl md:text-[1.65rem];
+  }
+  .features-chart-track {
+    @apply relative mx-auto flex h-44 w-full max-w-[3.25rem] items-end justify-center rounded-t-xl border-x border-t border-slate-200/90 bg-gradient-to-b from-white/90 to-slate-100/90 px-[3px] pt-[3px] shadow-inner shadow-slate-200/50 sm:max-w-[3.75rem];
+  }
+  .features-chart-bar {
+    @apply w-full min-h-[18%] rounded-t-md bg-gradient-to-t from-rose-500 via-rose-400 to-orange-400 shadow-sm transition duration-300 ease-out;
+    @apply hover:shadow-md hover:brightness-[1.03] motion-safe:hover:-translate-y-0.5;
+  }
+  .features-chart-captions {
+    @apply mx-auto grid max-w-5xl list-none grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-6 lg:gap-x-3 xl:gap-x-5;
+  }
+  .features-chart-caption {
+    @apply text-center;
+  }
+  .feature-title {
+    @apply mb-2 text-sm font-bold leading-snug text-slate-900 md:text-base;
+  }
+  .feature-desc {
+    @apply text-xs leading-relaxed text-slate-600 md:text-sm;
+  }
+
+  .download-btn {
+    @apply rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-10 py-4 text-lg font-bold text-white shadow-lg transition hover:scale-[1.02] hover:shadow-xl;
+  }
+}

@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Authentication Page Layout */
+  .auth-container {
+    @apply flex h-screen w-full font-sans;
+  }
+
+  /* Hero — light pink → orange (matches landing) */
+  .auth-hero {
+    background: linear-gradient(145deg, #fce7f3 0%, #fbcfe8 32%, #fed7aa 70%, #fdba74 100%);
+    @apply bg-cover bg-center bg-no-repeat;
+  }
+
+  /* Sidebar Content */
+  .auth-sidebar {
+    @apply hidden md:flex w-1/2 items-center justify-center p-12 text-slate-900 auth-hero;
+  }
+
+  /* Centered Content in Sidebar */
+  .auth-sidebar-content {
+    @apply text-center;
+  }
+
+  /* Sidebar Title */
+  .auth-sidebar-title {
+    @apply text-4xl italic mb-8;
+  }
+
+  /* Logo frame (light hero: soft ring + frosted card) */
+  .auth-logo-circle {
+    @apply w-48 h-48 rounded-full border-4 border-white/80 bg-white/35 shadow-md backdrop-blur-sm flex items-center justify-center mx-auto p-6;
+  }
+
+  .auth-logo-img {
+    @apply h-full w-full max-h-[9rem] object-contain;
+  }
+
+  /* Logo Icon (emoji fallback) */
+  .auth-logo-icon {
+    @apply text-8xl;
+  }
+
+  /* Form Section */
+  .auth-form-wrapper {
+    @apply w-full md:w-1/2 flex items-center justify-center bg-gray-50;
+  }
+
+  /* Form Container */
+  .auth-form-container {
+    @apply w-full max-w-md p-8;
+  }
+
+  /* Card Style for Form */
+  .auth-card {
+    @apply bg-white p-10 rounded-lg shadow-lg border border-gray-100;
+  }
+
+  /* Status Message (Error/Success) */
+  .status-message {
+    @apply p-2.5 mb-4 bg-red-100 text-red-800 border border-red-200 rounded text-center text-sm;
+  }
+  .status-loading {
+    @apply p-2.5 mb-4 bg-sky-100 text-sky-900 border border-sky-200 rounded text-center text-sm;
+  }
+  .status-success {
+    @apply p-2.5 mb-4 bg-green-100 text-green-800 border border-green-200 rounded text-center text-sm;
+  }
+
+  /* Form Title */
+  .auth-title {
+    @apply text-2xl font-semibold text-gray-800 mb-2;
+  }
+
+  /* Subtitle Text */
+  .auth-subtitle {
+    @apply text-sm text-gray-600 mb-8;
+  }
+
+  /* Form Labels */
+  .auth-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Input Fields */
+  .input-field {
+    @apply w-full px-4 py-2 bg-gray-100 border rounded-md outline-none transition-all;
+    @apply focus:ring-2 focus:ring-pink-400;
+  }
+
+  /* Primary actions — light pink (login / signup / auth flows) */
+  .btn-primary {
+    @apply w-full rounded-xl bg-pink-200 py-3 font-bold text-slate-800 shadow-md;
+    @apply border border-pink-300/80 transition hover:bg-pink-300 hover:border-pink-400 active:scale-[0.99];
+  }
+  .btn-primary:disabled {
+    @apply opacity-60 cursor-not-allowed hover:bg-pink-200 hover:border-pink-300/80;
+  }
+
+  /* Link Styles */
+  .link-styled {
+    @apply text-orange-700 hover:underline font-medium;
+  }
+
+  /* Form Group Spacing */
+  .auth-form-group {
+    @apply space-y-6;
+  }
+
+  /* Login & signup — full-page gradient, single centered column */
+  .auth-screen-page {
+    @apply relative min-h-screen w-full overflow-x-hidden font-sans text-slate-900 antialiased;
+    background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 26%, #fef9c3 68%, #fde047 100%);
+  }
+  .auth-screen-page::after {
+    content: "";
+    @apply pointer-events-none absolute inset-0 opacity-40;
+    background: radial-gradient(ellipse 85% 55% at 50% 0%, #f9a8d4 0%, transparent 58%);
+  }
+  .auth-screen-inner {
+    @apply relative z-10 mx-auto flex w-full max-w-lg flex-col items-center px-5 py-12 md:py-16;
+  }
+  .auth-screen-logo-wrap {
+    @apply mb-8 rounded-2xl border border-white/70 bg-white/85 px-6 py-4 shadow-lg shadow-rose-200/40;
+  }
+  .auth-screen-logo {
+    @apply mx-auto block h-12 w-auto max-w-[200px] object-contain md:h-14;
+  }
+  .auth-screen-headline {
+    @apply mb-8 text-center text-2xl font-extrabold leading-snug tracking-tight text-slate-900 md:text-3xl;
+  }
+  .auth-screen-card {
+    @apply w-full rounded-2xl border border-white/60 bg-white/90 p-8 shadow-xl shadow-rose-200/30 backdrop-blur-md md:p-10;
+  }
+  .auth-screen-card .auth-title {
+    @apply mb-1 text-center text-xl font-bold text-slate-800;
+  }
+  .auth-screen-card .auth-subtitle {
+    @apply mb-3 text-center text-sm text-slate-600 last:mb-6;
+  }
+  .auth-screen-card .auth-form-group {
+    @apply mt-2;
+  }
+}

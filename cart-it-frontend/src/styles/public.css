@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Global Page Layout */
+  .public-page-wrapper {
+    @apply min-h-screen bg-gray-50 flex flex-col;
+  }
+
+  /* Navigation & Branding */
+  .public-nav {
+    @apply flex justify-between items-center px-12 py-4 bg-white border-b border-gray-200 w-full sticky top-0 z-50;
+  }
+  .public-logo {
+    @apply h-16 cursor-pointer;
+  }
+
+  /* "Create your own" Call-to-Action for guest viewers */
+  .btn-create-cta {
+    @apply rounded-full bg-teal-50 px-4 py-2 text-sm font-bold text-teal-900 hover:underline;
+  }
+
+  /* Main Content Container */
+  .public-container {
+    @apply flex-1 max-w-7xl mx-auto w-full p-8 md:p-12;
+  }
+
+  /* Header & Wishlist Meta Section */
+  .public-header {
+    @apply mb-16 text-center;
+  }
+  .public-title {
+    @apply text-5xl font-extrabold text-gray-900 tracking-tight;
+  }
+
+  /* Displays curator info, item count, and total value */
+  .public-meta {
+    @apply flex items-center justify-center gap-3 mt-4 text-gray-500;
+  }
+  .public-total {
+    @apply text-gray-900 font-bold;
+  }
+
+  /* Product Display Grid & Item Cards */
+  .public-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8;
+  }
+  .public-card {
+    @apply bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden border border-gray-100;
+  }
+
+  /* Image container with hover-zoom effect */
+  .public-img-wrapper {
+    @apply relative h-72 overflow-hidden;
+  }
+  .public-img {
+    @apply w-full h-full object-cover group-hover:scale-105 transition-transform duration-500;
+  }
+
+  /* Icon indicating the item links to an external shop */
+  .external-indicator {
+    @apply absolute bottom-4 right-4 bg-white/90 backdrop-blur p-2 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity;
+  }
+
+  /* Product Information & Buttons */
+  .public-details {
+    @apply p-6;
+  }
+  .public-store-name {
+    @apply text-[10px] uppercase tracking-widest text-gray-400 font-bold;
+  }
+  .public-product-name {
+    @apply text-lg font-bold text-gray-800 mt-1 line-clamp-1;
+  }
+  .public-price {
+    @apply mt-2 text-xl font-black text-teal-700;
+  }
+
+  /* External link button to the retailer site */
+  .btn-shop {
+    @apply w-full mt-6 bg-gray-900 text-white py-3 rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2;
+  }
+
+  /* Page Footer */
+  .public-footer {
+    @apply mt-24 pb-12 text-center;
+  }
+
+  /* Branding badge for the Cart-It platform */
+  .footer-badge {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full text-xs text-gray-500 font-medium;
+  }
+}

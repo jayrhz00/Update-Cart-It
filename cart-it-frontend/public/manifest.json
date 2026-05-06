@@ -1,0 +1,25 @@
+{
+  "short_name": "Cart-It",
+  "name": "Cart-It",
+  "icons": [
+    {
+      "src": "favicon2.png",
+      "type": "image/png",
+      "sizes": "78x55"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#fde047",
+  "background_color": "#fef9c3"
+}

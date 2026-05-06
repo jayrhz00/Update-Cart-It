@@ -1,0 +1,14 @@
+{
+  "name": "cart-it",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cart-It: browser extension + React frontend (cart-it-frontend) + Express API (server).",
+  "scripts": {
+    "dev": "npm run server & npm run frontend",
+    "frontend": "npm --prefix cart-it-frontend start",
+    "frontend:build": "npm --prefix cart-it-frontend run build",
+    "frontend:test": "npm --prefix cart-it-frontend test",
+    "server": "npm --prefix server run dev",
+    "server:start": "npm --prefix server start"
+  }
+}

@@ -1,0 +1,13 @@
+Microsoft Edge Add-ons public key backup (Cart-It)
+Saved: 2026-05-05
+(Chrome Web Store key is different — see chrome-webstore-public-key.txt)
+
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjfphYx14vhh6fpm1p1t5
+Arp/qtATFwaDUCmxxWwu7K5S2/2vOdnA5HTsvfcJQzEizYZNPkXlzb7zJgCeApYS
+1N36gq7lEAuLnc9G33vPUvHAT6P0arsVU88bAS2rn0RSnG94WegPvJtCr3sbl4YU
+4dIgNDODt3ytx+/8DpONYnLOSUbMyKnnIrUZLgdr1FEdFQDYvMkwKwyt9r7Mc3Bv
+oM+s6iAr7+WIsa0Q29a3Tfl71Q69n5v/CHR5/LesLnMkQ9ZzQB+W//CCc17iJzlN
+1X/gsUCs/nOnSbsgakAZ870ozcuLq/KsqaGSY/EwZhNajNRpBoMda15S0TgtQlVT
+1wIDAQAB
+-----END PUBLIC KEY-----

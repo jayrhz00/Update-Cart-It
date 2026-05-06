@@ -1,0 +1,33 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Dashboard secrets: DATABASE_URL, JWT_SECRET, RESEND_API_KEY, RESEND_FROM_EMAIL,
+# SCRAPINGBEE_API_KEY (optional), PRICE_CHECK_CRON_SECRET (same on web + cron if used).
+# Optional: SCRAPINGBEE_API_KEY (+ SCRAPINGBEE_PREMIUM_PROXY=1 for difficult Amazon pages) — set in the API service Environment tab.
+services:
+  - type: web
+    name: cart-it-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: FRONTEND_URL
+        value: https://cart-it.com
+      - key: PRICE_CHECK_INTERVAL_MINUTES
+        value: "180"
+      - key: PRICE_CHECK_CRON_SECRET
+        sync: false
+      - key: SCRAPINGBEE_API_KEY
+        sync: false
+  # Optional: pings the API so price/stock runs on a schedule even when the web dyno sleeps.
+  # Set PRICE_CHECK_NOTIFY_URL if your service URL is not https://cart-it.onrender.com
+  - type: cron
+    name: cart-it-price-check-cron
+    schedule: "0 */3 * * *"
+    envVars:
+      - key: PRICE_CHECK_CRON_SECRET
+        sync: false
+      - key: PRICE_CHECK_NOTIFY_URL
+        value: https://cart-it.onrender.com/api/internal/run-price-check
+    startCommand: 'curl -fsS -X POST "$PRICE_CHECK_NOTIFY_URL" -H "X-Cart-It-Cron-Secret: $PRICE_CHECK_CRON_SECRET"'

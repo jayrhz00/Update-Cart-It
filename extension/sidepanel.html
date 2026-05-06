@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      body {
+        display: flex;
+        font-family: system-ui, -apple-system, sans-serif;
+        min-height: 100%;
+        background: #f8fafc;
+        color: #1e293b;
+      }
+      .edge-strip {
+        width: 8px;
+        flex-shrink: 0;
+        background: linear-gradient(180deg, #f97316, #f43f5e);
+        box-shadow: inset -1px 0 3px rgba(0, 0, 0, 0.05);
+      }
+      .panel-inner {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        height: 100vh;
+      }
+      
+      /* Tabs */
+      .tab-bar {
+        display: flex;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0 12px;
+      }
+      .tab-btn {
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        border: none;
+        background: none;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+        margin: 0;
+        width: auto;
+        box-shadow: none;
+      }
+      .tab-btn:hover {
+        color: #f97316;
+      }
+      .tab-btn.active {
+        color: #f97316;
+        border-bottom-color: #f97316;
+      }
+
+      .tab-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+
+      .popup-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+      .popup-header img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+      }
+      .popup-header h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 800;
+        background: linear-gradient(90deg, #f43f5e, #f97316);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      #signedInUser {
+        font-size: 13px;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0 0 4px;
+      }
+      #authStatus {
+        font-size: 11px;
+        line-height: 1.4;
+        margin: 0 0 16px;
+        color: #64748b;
+      }
+      
+      label {
+        display: block;
+        font-size: 12px;
+        margin-top: 14px;
+        color: #475569;
+        font-weight: 600;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        margin-top: 4px;
+        font-size: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-family: inherit;
+        background: #fff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: #f97316;
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 16px;
+        background: linear-gradient(90deg, #f43f5e, #f97316);
+        color: #fff;
+        border: 0;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        transition: transform 0.1s, opacity 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      button:hover {
+        opacity: 0.95;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button.secondary {
+        background: #fff;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+      button.link-btn {
+        margin-top: 8px;
+        width: auto;
+        padding: 4px 8px;
+        background: none;
+        color: #f97316;
+        font-weight: 600;
+        font-size: 12px;
+        text-decoration: none;
+        box-shadow: none;
+      }
+      button.link-btn:hover {
+        text-decoration: underline;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      #status {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        line-height: 1.5;
+        display: none;
+      }
+      #status.active {
+        display: block;
+      }
+      #status.ok {
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bcf0da;
+      }
+      #status.err {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+      }
+
+      .capture-preview {
+        margin: 16px 0;
+        padding: 12px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      .capture-preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .capture-preview-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      #capturePreviewImg {
+        display: block;
+        max-width: 100%;
+        max-height: 140px;
+        object-fit: contain;
+        border-radius: 6px;
+        margin: 0 auto 12px;
+      }
+      #capturePreviewDesc {
+        font-size: 12px;
+        line-height: 1.5;
+        color: #475569;
+        margin: 0;
+      }
+
+      .new-cat-wrap {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+      }
+
+      /* Wishlist View */
+      .wishlist-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 12px;
+        transition: transform 0.2s;
+      }
+      .wishlist-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      .wishlist-item img {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 6px;
+        background: #f8fafc;
+      }
+      .wishlist-item-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .wishlist-item-name {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .wishlist-item-price {
+        font-size: 12px;
+        color: #f97316;
+        font-weight: 700;
+      }
+      .wishlist-item-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .action-icon-btn {
+        background: none;
+        border: none;
+        padding: 4px;
+        cursor: pointer;
+        color: #94a3b8;
+        width: auto;
+        margin: 0;
+        box-shadow: none;
+      }
+      .action-icon-btn:hover {
+        color: #f43f5e;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #94a3b8;
+      }
+      .empty-state svg {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 12px;
+        opacity: 0.5;
+      }
+
+      /* Account View */
+      .account-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+      }
+      .user-avatar {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(135deg, #fecdd3, #fed7aa);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 12px;
+        font-size: 24px;
+        color: #f43f5e;
+        font-weight: 700;
+      }
+
+      details {
+        margin-top: 24px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px;
+      }
+      summary {
+        font-size: 12px;
+        color: #64748b;
+        cursor: pointer;
+        padding: 4px;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="edge-strip" aria-hidden="true"></div>
+    <div class="panel-inner">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="save">Save</button>
+        <button class="tab-btn" data-tab="wishlist">Wishlist</button>
+        <button class="tab-btn" data-tab="account">Account</button>
+      </div>
+
+      <div class="tab-content">
+        <!-- SAVE TAB -->
+        <div id="savePanel" class="tab-panel active">
+          <div class="popup-header">
+            <img src="icon.png" alt="cart-It" />
+            <h3>cart-It</h3>
+          </div>
+          
+          <p id="tabHint" aria-live="polite"></p>
+
+          <div id="capturePreview" class="capture-preview" hidden>
+            <div class="capture-preview-header">
+              <span class="capture-preview-label">Captured from page</span>
+              <div style="display:flex;gap:8px">
+                <button type="button" id="aiSummarizeBtn" class="link-btn" style="margin:0;padding:2px;color:#8b5cf6">✨ AI Summarize</button>
+                <button type="button" id="reScrapeBtn" class="link-btn" style="margin:0;padding:2px">Refresh</button>
+              </div>
+            </div>
+            <img id="capturePreviewImg" alt="" />
+            <p id="capturePreviewDesc"></p>
+          </div>
+
+          <label for="listScope">Save to</label>
+          <select id="listScope">
+            <option value="Private">Private wishlist</option>
+            <option value="Shared">Shared wishlist</option>
+          </select>
+
+          <label for="category">Wishlist Category</label>
+          <select id="category">
+            <option value="">No category</option>
+          </select>
+          <button type="button" id="toggleNewCat" class="link-btn">+ Create new category</button>
+          
+          <div id="newCatWrap" class="new-cat-wrap" hidden>
+            <label for="newCatName" style="margin-top:0">Category Name</label>
+            <input id="newCatName" type="text" placeholder="e.g. Holiday gifts" autocomplete="off" />
+            <button type="button" id="createCatBtn" class="secondary">Create category</button>
+          </div>
+
+          <label for="notes">Notes (optional)</label>
+          <textarea id="notes" placeholder="Sizing, color, reminders…"></textarea>
+          
+          <label for="manualPrice">Price</label>
+          <input id="manualPrice" type="number" min="0" step="0.01" placeholder="Auto-detecting..." />
+          <div id="priceHint" style="margin-top:6px;font-size:11px;line-height:1.35;color:#64748b"></div>
+          
+          <button type="button" id="saveBtn">Save to cart-It</button>
+
+          <div id="afterSaveActions" style="margin-top:16px;text-align:center" hidden>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+              <a id="viewWishlistLink" href="#" style="font-size:14px;font-weight:700;color:#f97316">See item in wishlist</a>
+              <a id="saveTabDashboardLink" href="#" style="font-size:12px;color:#64748b">Go to Dashboard</a>
+            </div>
+            <button type="button" id="closePanelBtn" class="link-btn" style="display:block;margin:12px auto 0">Keep shopping</button>
+          </div>
+        </div>
+
+        <!-- WISHLIST TAB -->
+        <div id="wishlistPanel" class="tab-panel">
+          <div class="popup-header">
+            <img src="icon.png" alt="cart-It" />
+            <h3>Your Items</h3>
+          </div>
+          <div id="wishlistItemsContainer">
+            <div class="empty-state">
+              <p>Loading items...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACCOUNT TAB -->
+        <div id="accountPanel" class="tab-panel">
+          <div class="popup-header">
+            <img src="icon.png" alt="cart-It" />
+            <h3>Account</h3>
+          </div>
+          
+          <div class="account-card">
+            <div id="userAvatar" class="user-avatar">?</div>
+            <p id="signedInUser">Not signed in</p>
+            <p id="authStatus">Sign in to sync your items across devices.</p>
+            
+            <div id="signInWrap">
+              <label for="signInEmail" style="text-align:left">Email</label>
+              <input id="signInEmail" type="email" autocomplete="username" />
+              <label for="signInPassword" style="text-align:left">Password</label>
+              <input id="signInPassword" type="password" autocomplete="current-password" />
+              <button type="button" id="signInBtn">Sign In</button>
+              <button type="button" id="createAccountBtn" class="link-btn">Create account</button>
+            </div>
+
+            <button type="button" id="syncSessionBtn" class="secondary" hidden>Sync login from cart-it.com</button>
+            <button type="button" id="goToDashboardBtn" class="secondary">Go to Dashboard</button>
+            <button type="button" id="signOutBtn" class="link-btn" style="color:#94a3b8" hidden>Sign Out</button>
+          </div>
+
+          <details>
+            <summary>Advanced Settings</summary>
+            <label for="webAppOrigin">Web app URL</label>
+            <input id="webAppOrigin" type="text" placeholder="https://cart-it.com" />
+            <label for="apiBase">API Base URL</label>
+            <input id="apiBase" type="text" placeholder="https://cart-it.onrender.com" />
+          </details>
+        </div>
+      </div>
+
+      <div id="status"></div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

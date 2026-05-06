@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 44" role="img" aria-labelledby="logoTitle">
+  <title id="logoTitle">Cart It</title>
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fce7f3"/>
+      <stop offset="40%" stop-color="#f472b6"/>
+      <stop offset="100%" stop-color="#facc15"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#logoGrad)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="31" r="2.5" fill="url(#logoGrad)" stroke="none"/>
+    <circle cx="23" cy="31" r="2.5" fill="url(#logoGrad)" stroke="none"/>
+    <path d="M3 9h3l2 12h14l2-9H8"/>
+  </g>
+  <text
+    x="34"
+    y="31"
+    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-size="26"
+    font-weight="800"
+    letter-spacing="-0.02em"
+    fill="url(#logoGrad)"
+    stroke="none"
+  >Cart It</text>
+</svg>

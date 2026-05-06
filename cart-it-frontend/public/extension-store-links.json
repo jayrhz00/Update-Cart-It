@@ -1,0 +1,14 @@
+{
+  "edge": {
+    "status": "pending",
+    "url": ""
+  },
+  "chrome": {
+    "status": "approved",
+    "url": "https://chromewebstore.google.com/detail/cart-it/aoahhjckdkblhjillofleoglijcnofoj"
+  },
+  "firefox": {
+    "status": "approved",
+    "url": "https://addons.mozilla.org/en-US/firefox/addon/cart-it/"
+  }
+}

@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Core Page Layouts */
+  .page-wrapper { @apply flex h-screen overflow-hidden bg-white; }
+  .sidebar-container-wrapper { @apply w-64 border-r border-gray-200 flex-shrink-0; }
+  .detail-main { @apply flex-1 p-12 overflow-y-auto h-full bg-gray-50; }
+
+  /* Header & Typography */
+  .detail-header { @apply mb-10 w-full; }
+  .header-content { @apply mt-4; }
+  .back-link { @apply flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-4; }
+  .wishlist-title { @apply text-4xl font-bold text-gray-900; }
+  .stats { @apply text-gray-500 text-sm mt-2 flex gap-2; }
+
+  /* List Management Actions */
+  .btn-delete-list {
+    @apply flex items-center gap-2 border-none font-bold text-xs transition-all text-gray-400 hover:text-red-500;
+  }
+  .btn-delete-confirm { @apply text-red-600; }
+
+  /* Toolbar & Filtering System */
+  .toolbar { @apply flex gap-3 mt-6; }
+  .filter-wrapper { @apply relative; }
+  .filter-menu { @apply absolute top-12 left-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40; }
+  .filter-option { @apply block w-full px-4 py-2 hover:bg-gray-100 text-left text-sm; }
+
+  /* Interaction Buttons (Edit & Bulk Actions) */
+  .btn-edit-mode {
+    @apply flex min-h-[44px] items-center gap-2 rounded-lg border border-transparent bg-teal-600 px-5
+    py-[10px] font-medium text-white transition-all hover:bg-teal-700;
+  }
+  .btn-edit-active { @apply bg-gray-600 hover:bg-gray-700; }
+  .btn-bulk-delete {
+    @apply flex items-center gap-2 px-5 py-[10px] rounded-lg border border-transparent 
+    bg-red-600 text-white font-medium hover:bg-red-700 transition-all min-h-[44px] shadow-sm;
+  }
+  .tool-btn { 
+    @apply flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white border border-gray-300 
+    text-gray-700 font-medium hover:bg-gray-100 transition-all shadow-sm; 
+  }
+
+  /* Modals & Overlays */
+  .modal-overlay { @apply fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center; }
+  .share-modal { @apply bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full relative mx-auto; }
+  .close-modal { @apply absolute top-4 right-4 text-gray-400 hover:text-black; }
+
+  /* Sharing & Collaboration Inputs */
+  .btn-share-copy {
+    @apply w-full rounded-lg bg-teal-600 py-3 font-bold text-white transition-all duration-300 hover:bg-teal-700;
+  }
+  .btn-share-copied { @apply bg-green-600 hover:bg-green-700; }
+
+  .collab-input {
+    @apply mb-1 w-full rounded-lg border p-3 outline-none transition-all focus:ring-2 focus:ring-teal-500;
+  }
+  .input-error { @apply border-red-500 bg-red-50; }
+  .error-container { @apply h-5 mb-3; }
+  .error-text { @apply text-red-500 text-xs font-medium; }
+  .btn-collab-submit { @apply w-full py-3 rounded-lg font-bold text-white transition-all duration-300; }
+
+  /* Item Display Grid & Cards */
+  .item-grid { 
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
+    gap: 20px;
+    align-items: start; 
+    width: 100%;
+  }
+  .item-card { 
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer relative h-auto flex flex-col; 
+  }
+  .selected-ring {
+    @apply ring-2 ring-teal-500;
+  }
+  .item-checkbox {
+    @apply absolute left-4 top-4 z-30 h-6 w-6 cursor-pointer accent-teal-600;
+  }
+
+  /* Product Image Handling */
+  .img-wrapper { @apply relative bg-gray-100 w-full h-[240px]; }
+  .img-wrapper img { @apply w-full h-full object-cover; }
+
+  /* Product Information */
+  .item-details { @apply p-5 bg-white flex flex-col min-h-[140px]; }
+  .store { @apply text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1; }
+  .name { 
+    @apply font-bold text-gray-900 text-sm leading-tight mb-auto overflow-hidden h-[2.8rem];
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .price {
+    @apply mt-auto text-base font-bold text-teal-700;
+  }
+
+  /* Filter Pills & Badges */
+  .filter-pill-active { @apply flex items-center gap-2 px-5 py-[10px] bg-gray-200 border border-gray-300 rounded-lg shadow-sm min-h-[44px] box-border; }
+  .filter-pill-text { @apply text-sm font-medium text-gray-700 capitalize leading-normal; }
+  .filter-reset-btn { @apply hover:bg-gray-300 rounded-full w-6 h-6 transition-colors flex items-center justify-center -mr-2; }
+  .filter-reset-icon { @apply text-[14px] font-normal text-gray-500; }
+
+  /* State Toggles & Metadata */
+  .btn-unorganized-toggle { @apply tool-btn transition-all duration-200; }
+  .btn-unorganized-active {
+    @apply border-teal-600 bg-teal-50 text-teal-800;
+  }
+  .wishlist-badge {
+    @apply absolute right-3 top-3 z-20 rounded-md border border-teal-200 bg-white/95 px-2.5 py-1 text-[10px]
+    font-extrabold uppercase tracking-wider text-teal-900 shadow-sm backdrop-blur-sm;
+  }
+}

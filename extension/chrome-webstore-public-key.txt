@@ -1,0 +1,13 @@
+Chrome Web Store public key (cart-it published package)
+Extension ID: aoahhjckdkblhjillofleoglijcnofoj
+Saved from Developer Dashboard → Package → Public key (2026-05-05)
+
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmsm1F1bSJot/vPQX2er6
+nd1KAa76r5WLinDI6hhj9sPXkkyudtcs2UxuBgog+1zlrTAdN9vXxyz7RTgsyVNG
+UfLtvj9u0RdwhxGLgYBr4uZvf84LpiHBELMRSQaAzCdoTX3X8EWIqQPToPpdGXRh
+MBvdS+oafTUdbyq72jeQFO1h1JzLqx3qdjsYBzzsiCo9WlhcvORnQij/X9HrGouF
+KC8sjcYnPWCf6ORJdOSZsgu21XTYgqb6TDMONqq4pvc6ZWqflWsJhsfjDAta1Z5q
+Q3dG1NYvlbjz/i+n048+Q9Sg9iTVTR1rXWZtpYa2tMRvb8MMhVYI9XbwnQx36qr0
+ZQIDAQAB
+-----END PUBLIC KEY-----

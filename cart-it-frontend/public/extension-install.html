@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cart-It extension</title>
+    <style>
+      :root {
+        --ink: #0f172a;
+        --muted: #57534e;
+        --accent-from: #f43f5e;
+        --accent-to: #f97316;
+        --card: rgba(255, 255, 255, 0.92);
+        --border: rgba(251, 113, 133, 0.35);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        padding: 28px 18px 40px;
+        background: linear-gradient(160deg, #fff5f5 0%, #fff7ed 45%, #fef3c7 100%);
+        color: var(--ink);
+        line-height: 1.45;
+      }
+      .wrap {
+        max-width: 420px;
+        margin: 0 auto;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px 22px 24px;
+        box-shadow: 0 12px 40px -18px rgba(244, 63, 94, 0.35);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        background: linear-gradient(90deg, #e11d48, #ea580c);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .sub {
+        margin: 0 0 22px;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+      .hero-btn {
+        display: block;
+        width: 100%;
+        text-align: center;
+        padding: 16px 18px;
+        border-radius: 14px;
+        border: none;
+        background: linear-gradient(90deg, var(--accent-from), var(--accent-to));
+        color: #fff;
+        font-weight: 800;
+        font-size: 1.05rem;
+        cursor: pointer;
+        text-decoration: none;
+        box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
+      }
+      .hero-btn:hover {
+        filter: brightness(1.05);
+      }
+      .hero-btn.secondary {
+        margin-top: 12px;
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--ink);
+        border: 1px solid rgba(251, 113, 133, 0.4);
+        box-shadow: none;
+        font-weight: 700;
+        font-size: 0.92rem;
+      }
+      .footnote {
+        margin: 18px 0 0;
+        font-size: 0.8rem;
+        color: #78716c;
+      }
+      details {
+        margin-top: 20px;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      summary {
+        cursor: pointer;
+        color: #c2410c;
+        font-weight: 600;
+      }
+      details code {
+        background: rgba(254, 215, 170, 0.5);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.85em;
+      }
+      .browser-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .browser-row {
+        border: 1px solid rgba(251, 113, 133, 0.35);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+      .browser-row.top-pick {
+        border-color: rgba(234, 88, 12, 0.5);
+        box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.12);
+      }
+      .browser-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .browser-name {
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .status-pill {
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .status-approved {
+        background: #dcfce7;
+        color: #166534;
+      }
+      .status-pending {
+        background: #ffedd5;
+        color: #9a3412;
+      }
+      .mini-note {
+        font-size: 0.75rem;
+        color: #78716c;
+        margin-top: 6px;
+      }
+      .tiny {
+        font-size: 0.78rem;
+        color: #57534e;
+        margin: 0 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>Cart-It Extension</h1>
+        <p class="sub" id="intro">
+          Save from any site, share lists and chat with friends, track prices and stock, and add notes.
+          Install in one click from your browser store when available. The Cart-It icon appears
+          <strong>next to the address bar</strong>.
+        </p>
+
+        <div id="hero-mount"></div>
+        <div id="browser-mount" class="browser-grid"></div>
+
+        <p class="footnote" id="footnote"></p>
+
+        <details>
+          <summary>Advanced / developers</summary>
+          <p style="margin: 10px 0 0">
+            If store approval is still pending, download the zip and install manually:
+            Edge/Chrome → <code>edge://extensions</code> / <code>chrome://extensions</code> → Developer mode →
+            <strong>Load unpacked</strong> after unzipping.
+          </p>
+        </details>
+      </div>
+    </div>
+
+    <script>
+      const BROWSERS = {
+        edge: {
+          label: "Microsoft Edge",
+          storeLabel: "Get on Edge Add-ons",
+          zip: "/cart-it-extension-chromium.zip",
+        },
+        chrome: {
+          label: "Google Chrome",
+          storeLabel: "Get on Chrome Web Store",
+          zip: "/cart-it-extension-chromium.zip",
+        },
+        firefox: {
+          label: "Mozilla Firefox",
+          storeLabel: "Get on Firefox Add-ons",
+          zip: "/cart-it-extension-firefox.zip",
+        },
+      };
+
+      const mount = document.getElementById("hero-mount");
+      const browserMount = document.getElementById("browser-mount");
+      const footnote = document.getElementById("footnote");
+
+      function detectBrowser() {
+        const ua = navigator.userAgent || "";
+        if (/Edg\//i.test(ua)) return "edge";
+        if (/Firefox\//i.test(ua)) return "firefox";
+        if (/Chrome\//i.test(ua)) return "chrome";
+        return "edge";
+      }
+
+      function normalizeLinks(raw) {
+        const out = {};
+        for (const key of Object.keys(BROWSERS)) {
+          const row = raw && typeof raw[key] === "object" ? raw[key] : {};
+          out[key] = {
+            status: String(row.status || "pending").toLowerCase() === "approved" ? "approved" : "pending",
+            url: typeof row.url === "string" ? row.url.trim() : "",
+          };
+        }
+        return out;
+      }
+
+      function renderLinks(links) {
+        const current = detectBrowser();
+        const me = BROWSERS[current];
+        const meCfg = links[current];
+
+        if (meCfg.status === "approved" && meCfg.url) {
+          /* Store install buttons live in each browser row below — avoid duplicating the same CTA here. */
+          mount.innerHTML = "";
+          footnote.textContent =
+            "Install from your browser’s section below (green Approved). Open the store page and click Add / Get.";
+        } else {
+          mount.innerHTML =
+            '<a class="hero-btn" href="' +
+            me.zip +
+            '" download="cart-it-extension.zip">Download for ' +
+            me.label +
+            "</a>";
+          footnote.textContent =
+            "Store listing for your browser is pending. You can still install now by downloading the zip and loading it unpacked.";
+        }
+
+        browserMount.innerHTML = "";
+        for (const key of ["edge", "chrome", "firefox"]) {
+          const browser = BROWSERS[key];
+          const cfg = links[key];
+          const row = document.createElement("div");
+          row.className = "browser-row" + (key === current ? " top-pick" : "");
+          const pillClass = cfg.status === "approved" ? "status-pill status-approved" : "status-pill status-pending";
+          const action =
+            cfg.status === "approved" && cfg.url
+              ? '<a class="hero-btn secondary" href="' +
+                cfg.url +
+                '" target="_blank" rel="noopener noreferrer">' +
+                browser.storeLabel +
+                "</a>"
+              : '<a class="hero-btn secondary" href="' +
+                browser.zip +
+                '" download="cart-it-extension-' +
+                key +
+                '.zip">Download ZIP (' +
+                browser.label +
+                ")</a>";
+          row.innerHTML =
+            '<div class="browser-head"><span class="browser-name">' +
+            browser.label +
+            '</span><span class="' +
+            pillClass +
+            '">' +
+            cfg.status +
+            "</span></div>" +
+            '<p class="tiny">' +
+            (cfg.status === "approved"
+              ? "One-click store install is live."
+              : "Store listing pending; temporary zip install available.") +
+            "</p>" +
+            action +
+            (key === current ? '<p class="mini-note">Recommended for this browser.</p>' : "");
+          browserMount.appendChild(row);
+        }
+      }
+
+      fetch("/extension-store-links.json", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : {}))
+        .then((raw) => renderLinks(normalizeLinks(raw)))
+        .catch(() => {
+          renderLinks(
+            normalizeLinks({
+              edge: { status: "pending", url: "" },
+              chrome: { status: "pending", url: "" },
+              firefox: { status: "pending", url: "" },
+            })
+          );
+        });
+
+      if (/Edg/i.test(navigator.userAgent || "")) {
+        document.addEventListener("click", function (e) {
+          const target = e.target;
+          if (target && target.matches('a[download*="cart-it-extension"]')) {
+            setTimeout(function () {
+              window.location.href = "edge://extensions";
+            }, 700);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
