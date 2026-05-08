@@ -152,6 +152,55 @@
         color: #57534e;
         margin: 0 0 8px;
       }
+      .row-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .row-divider {
+        text-align: center;
+        font-size: 0.72rem;
+        color: #a8a29e;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 2px 0;
+      }
+      .manual-card {
+        margin-top: 22px;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(251, 113, 133, 0.3);
+        border-radius: 14px;
+        padding: 16px 18px;
+      }
+      .manual-card h2 {
+        margin: 0 0 6px;
+        font-size: 1rem;
+        font-weight: 800;
+        color: #c2410c;
+      }
+      .manual-card p,
+      .manual-card li {
+        font-size: 0.85rem;
+        color: #44403c;
+      }
+      .manual-card ol {
+        margin: 8px 0 0 18px;
+        padding: 0;
+      }
+      .manual-card li {
+        margin-bottom: 6px;
+      }
+      .manual-card code {
+        background: rgba(254, 215, 170, 0.55);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.82em;
+      }
+      .manual-card .firefox-note {
+        margin-top: 8px;
+        font-size: 0.78rem;
+        color: #78716c;
+      }
     </style>
   </head>
   <body>
@@ -169,14 +218,29 @@
 
         <p class="footnote" id="footnote"></p>
 
-        <details>
-          <summary>Advanced / developers</summary>
-          <p style="margin: 10px 0 0">
-            If store approval is still pending, download the zip and install manually:
-            Edge/Chrome → <code>edge://extensions</code> / <code>chrome://extensions</code> → Developer mode →
-            <strong>Load unpacked</strong> after unzipping.
+        <section class="manual-card" aria-labelledby="manual-install-heading">
+          <h2 id="manual-install-heading">Manual install (ZIP fallback)</h2>
+          <p>
+            Use this if the store version is still in review or you want today’s newest build before it
+            propagates. The ZIP above is always the latest code.
           </p>
-        </details>
+          <ol>
+            <li>Click the <strong>Download ZIP</strong> button for your browser above.</li>
+            <li>Right-click the downloaded file and choose <strong>Extract All…</strong> to unzip it into a folder.</li>
+            <li>
+              Open <code>chrome://extensions</code> (Chrome) or <code>edge://extensions</code> (Edge) in a new tab.
+            </li>
+            <li>Toggle on <strong>Developer mode</strong> in the top-right corner.</li>
+            <li>Click <strong>Load unpacked</strong> and select the unzipped folder.</li>
+            <li>The Cart-It icon will appear next to the address bar — pin it for easy access.</li>
+          </ol>
+          <p class="firefox-note">
+            Firefox: open <code>about:debugging#/runtime/this-firefox</code> →
+            <strong>Load Temporary Add-on…</strong> → pick the <code>manifest.json</code> inside the unzipped folder.
+            Temporary add-ons disappear when Firefox restarts; the official store version (when approved) installs
+            permanently.
+          </p>
+        </section>
       </div>
     </div>
 
@@ -229,10 +293,14 @@
         const meCfg = links[current];
 
         if (meCfg.status === "approved" && meCfg.url) {
-          /* Store install buttons live in each browser row below — avoid duplicating the same CTA here. */
-          mount.innerHTML = "";
+          mount.innerHTML =
+            '<a class="hero-btn" href="' +
+            meCfg.url +
+            '" target="_blank" rel="noopener noreferrer">' +
+            me.storeLabel +
+            "</a>";
           footnote.textContent =
-            "Install from your browser’s section below (green Approved). Open the store page and click Add / Get.";
+            "Approved on the store — one-click install. The ZIP is also available below if you’d prefer to load it manually or if the store version hasn’t auto-updated yet.";
         } else {
           mount.innerHTML =
             '<a class="hero-btn" href="' +
@@ -241,7 +309,7 @@
             me.label +
             "</a>";
           footnote.textContent =
-            "Store listing for your browser is pending. You can still install now by downloading the zip and loading it unpacked.";
+            "Store listing for your browser is pending. You can still install now by downloading the ZIP — see the steps further down.";
         }
 
         browserMount.innerHTML = "";
@@ -251,20 +319,23 @@
           const row = document.createElement("div");
           row.className = "browser-row" + (key === current ? " top-pick" : "");
           const pillClass = cfg.status === "approved" ? "status-pill status-approved" : "status-pill status-pending";
-          const action =
+
+          const storeBtn =
             cfg.status === "approved" && cfg.url
               ? '<a class="hero-btn secondary" href="' +
                 cfg.url +
                 '" target="_blank" rel="noopener noreferrer">' +
                 browser.storeLabel +
                 "</a>"
-              : '<a class="hero-btn secondary" href="' +
-                browser.zip +
-                '" download="cart-it-extension-' +
-                key +
-                '.zip">Download ZIP (' +
-                browser.label +
-                ")</a>";
+              : "";
+          const zipBtn =
+            '<a class="hero-btn secondary" href="' +
+            browser.zip +
+            '" download="cart-it-extension-' +
+            key +
+            '.zip">Download ZIP (manual install)</a>';
+          const divider = storeBtn ? '<div class="row-divider">or</div>' : "";
+
           row.innerHTML =
             '<div class="browser-head"><span class="browser-name">' +
             browser.label +
@@ -275,10 +346,14 @@
             "</span></div>" +
             '<p class="tiny">' +
             (cfg.status === "approved"
-              ? "One-click store install is live."
-              : "Store listing pending; temporary zip install available.") +
+              ? "One-click store install is live, or use the ZIP to get the latest build right away."
+              : "Store listing pending; the ZIP is the fastest way to install today.") +
             "</p>" +
-            action +
+            '<div class="row-actions">' +
+            storeBtn +
+            divider +
+            zipBtn +
+            "</div>" +
             (key === current ? '<p class="mini-note">Recommended for this browser.</p>' : "");
           browserMount.appendChild(row);
         }
