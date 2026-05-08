@@ -213,7 +213,6 @@
           <strong>next to the address bar</strong>.
         </p>
 
-        <div id="hero-mount"></div>
         <div id="browser-mount" class="browser-grid"></div>
 
         <p class="footnote" id="footnote"></p>
@@ -263,7 +262,6 @@
         },
       };
 
-      const mount = document.getElementById("hero-mount");
       const browserMount = document.getElementById("browser-mount");
       const footnote = document.getElementById("footnote");
 
@@ -289,25 +287,12 @@
 
       function renderLinks(links) {
         const current = detectBrowser();
-        const me = BROWSERS[current];
         const meCfg = links[current];
 
         if (meCfg.status === "approved" && meCfg.url) {
-          mount.innerHTML =
-            '<a class="hero-btn" href="' +
-            meCfg.url +
-            '" target="_blank" rel="noopener noreferrer">' +
-            me.storeLabel +
-            "</a>";
           footnote.textContent =
-            "Approved on the store — one-click install. The ZIP is also available below if you’d prefer to load it manually or if the store version hasn’t auto-updated yet.";
+            "Approved on the store — one-click install. The ZIP fallback is also available if the store hasn’t propagated the latest build yet.";
         } else {
-          mount.innerHTML =
-            '<a class="hero-btn" href="' +
-            me.zip +
-            '" download="cart-it-extension.zip">Download for ' +
-            me.label +
-            "</a>";
           footnote.textContent =
             "Store listing for your browser is pending. You can still install now by downloading the ZIP — see the steps further down.";
         }
@@ -322,7 +307,7 @@
 
           const storeBtn =
             cfg.status === "approved" && cfg.url
-              ? '<a class="hero-btn secondary" href="' +
+              ? '<a class="hero-btn" href="' +
                 cfg.url +
                 '" target="_blank" rel="noopener noreferrer">' +
                 browser.storeLabel +
