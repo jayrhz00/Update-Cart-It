@@ -85,7 +85,7 @@ export default function Coupons() {
       try {
         await Promise.all([loadCurated(), loadCartStores()]);
       } catch (e) {
-        if (!cancelled) setError(e.message || "Could not load coupons.");
+        if (!cancelled) setError(e.message || "Could not load offers.");
       } finally {
         if (!cancelled) setLoading(false);
       }

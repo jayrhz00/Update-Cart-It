@@ -73,7 +73,7 @@ const Sidebar = ({ showExtension = false }) => {
             onClick={() => navigate('/coupons')}
           >
             <LuTicket aria-hidden />
-            <span>Coupons</span>
+            <span>Offers</span>
           </button>
         </nav>
 

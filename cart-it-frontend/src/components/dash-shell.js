@@ -41,7 +41,7 @@ export default function DashShell({ children }) {
           </NavLink>
           <NavLink to="/coupons" className={navClass}>
             <LuTicket size={18} aria-hidden />
-            Coupons
+            Offers
           </NavLink>
         </nav>
 
