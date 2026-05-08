@@ -6,11 +6,12 @@
   const root = typeof self !== "undefined" ? self : window;
 
   /**
-   * CHANGE THESE for your production deployment.
-   * If these are "localhost", the extension only works with your local server.
+   * Production defaults. Local development can override these via the
+   * "Web app URL" / "API Base URL" inputs in the side panel's Advanced settings,
+   * which are stored in chrome.storage.local and take precedence at runtime.
    */
-  const defaultWebAppOrigin = "http://localhost:3000";
-  const defaultApiBase = "http://localhost:5001";
+  const defaultWebAppOrigin = "https://cart-it.com";
+  const defaultApiBase = "https://cart-it.onrender.com";
 
   /** 
    * Helpers to check if a tab is one of our web app pages.

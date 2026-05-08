@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "cart-It",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Save items from any site, collaborate and chat in shared lists, track prices and stock, and add notes.",
   "background": {
     "scripts": [
