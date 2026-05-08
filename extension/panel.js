@@ -89,10 +89,23 @@ function getPageData() {
     return Math.min(...amounts);
   };
 
+  const SAVINGS_BEFORE = /(?:save|saving|savings|off|discount|reward|coupon|bonus)\s*[:\-]?\s*\$?\s*$/i;
+  const SAVINGS_AFTER = /^\s*(?:off|in\s+savings?|discount|saved|coupon)\b/i;
+  const looksLikeSavingsAmount = (fullText, matchIndex, matchLength) => {
+    const before = fullText.slice(Math.max(0, matchIndex - 32), matchIndex);
+    if (SAVINGS_BEFORE.test(before)) return true;
+    const afterStart = matchIndex + matchLength;
+    const after = fullText.slice(afterStart, afterStart + 24);
+    if (SAVINGS_AFTER.test(after)) return true;
+    return false;
+  };
+
   const pickNearCartPriceFromText = (text) => {
     const prices = [];
-    const matches = [...String(text).matchAll(/\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g)];
-    for (const m of matches) {
+    const re = /\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (looksLikeSavingsAmount(text, m.index, m[0].length)) continue;
       const p = parsePriceText(m[1]);
       if (p != null && p >= 0.01 && p < 1_000_000) prices.push(p);
     }
@@ -144,12 +157,16 @@ function getPageData() {
     const genericSels = [
       ".price", ".product-price", ".sale-price", ".current-price",
       ".product__price", ".pdp-price", ".cider-product-price",
-      "[itemprop='price']", "[data-testid*='price']"
+      "[itemprop='price']", "[data-testid*='price']",
+      "[data-test='product-price']", "[data-test*='current-price']",
+      "[data-test*='product-price']"
     ];
     const foundPrices = [];
     for (const sel of genericSels) {
       document.querySelectorAll(sel).forEach(el => {
-        const p = parsePriceText(el.textContent || el.getAttribute("content"));
+        const raw = el.textContent || el.getAttribute("content") || "";
+        if (looksLikeSavingsAmount(raw, 0, raw.length)) return;
+        const p = parsePriceText(raw);
         if (p != null && p > 0) foundPrices.push(p);
       });
     }
@@ -171,7 +188,43 @@ function getPageData() {
     "Untitled page"
   ).trim();
 
-  const finalUrl = (document.querySelector('link[rel="canonical"]')?.href || location.href).trim();
+  // Use the URL the user is actually viewing (with tracking params stripped) instead of
+  // <link rel="canonical">. Some retailers (notably Amazon) collapse all color/size variants
+  // onto a single canonical URL, which made saving a different color of the same product
+  // dedupe onto the previous variant. The live URL keeps variant info (ASIN, ?color=, etc.)
+  // so each variant becomes its own wishlist row.
+  const stripTrackingParams = (href) => {
+    try {
+      const u = new URL(href);
+      const TRACKING_KEYS = [
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_term",
+        "utm_content",
+        "gclid",
+        "fbclid",
+        "msclkid",
+        "ref",
+        "ref_",
+        "ref_src",
+        "tag",
+        "linkCode",
+        "creativeASIN",
+        "ascsubtag",
+        "psc",
+        "_encoding",
+        "smid",
+        "gclsrc",
+      ];
+      TRACKING_KEYS.forEach((k) => u.searchParams.delete(k));
+      const search = u.searchParams.toString();
+      return `${u.origin}${u.pathname}${search ? `?${search}` : ""}`;
+    } catch {
+      return href;
+    }
+  };
+  const finalUrl = stripTrackingParams(location.href).trim();
 
   return {
     item_name: finalName.slice(0, 250),
@@ -283,12 +336,75 @@ function setCapturePreview(result) {
 }
 
 async function resolveJwt() {
+  // Honor explicit user actions: if a token is already stored, trust it and don't auto-resync
+  // from open cart-it.com tabs (otherwise sign-out and sign-in-as-other-user keep flipping back).
+  const stored = await chrome.storage.local.get(["jwt", "manualAuth"]);
+  if (isLikelyJwt(stored.jwt)) {
+    authRejected = false;
+    return stored.jwt;
+  }
+  if (stored.manualAuth === "signed-out") {
+    return "";
+  }
   await requestTokenSyncFromBackground();
   await syncTokenFromOpenTabs();
   const { jwt } = await chrome.storage.local.get(["jwt"]);
   const tok = isLikelyJwt(jwt) ? jwt : "";
   if (tok) authRejected = false;
   return tok;
+}
+
+async function getCartItTabs() {
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({});
+  } catch { return []; }
+  return tabs.filter((tab) => {
+    if (!tab?.id || !tab.url) return false;
+    try {
+      const u = new URL(tab.url);
+      return isCartItHost(u.hostname);
+    } catch { return false; }
+  });
+}
+
+async function clearTokenFromOpenTabs() {
+  const localTabs = await getCartItTabs();
+  for (const tab of localTabs) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          try {
+            localStorage.removeItem("token");
+          } catch { /* ignore */ }
+        },
+      });
+    } catch { /* no access */ }
+  }
+}
+
+async function pushTokenToOpenTabs(jwt) {
+  if (!isLikelyJwt(jwt)) return;
+  const localTabs = await getCartItTabs();
+  for (const tab of localTabs) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (token) => {
+          try {
+            const existing = localStorage.getItem("token");
+            if (existing === token) return;
+            localStorage.setItem("token", token);
+          } catch { /* ignore */ }
+        },
+        args: [jwt],
+      });
+      try {
+        await chrome.tabs.reload(tab.id);
+      } catch { /* ignore */ }
+    } catch { /* no access */ }
+  }
 }
 
 async function setAuthLine() {
@@ -327,6 +443,8 @@ async function setAuthLine() {
   if (signInWrap) signInWrap.hidden = ok;
   if (syncBtn) syncBtn.hidden = ok;
   if (signOutBtn) signOutBtn.hidden = !ok;
+  const goToDashBtn = document.getElementById("goToDashboardBtn");
+  if (goToDashBtn) goToDashBtn.hidden = !ok;
 }
 
 function isLikelyJwt(token) {
@@ -672,29 +790,21 @@ document.getElementById("saveBtn")?.addEventListener("click", async () => {
     if (res.ok) {
       const data = await res.json();
       console.log("Saved item data:", data);
-      setStatus("Saved successfully!", true);
+      const wasUpdate = res.status === 200;
+      setStatus(wasUpdate ? "Already saved — updated price." : "Saved successfully!", true);
       const webBase = await getWebAppOrigin();
-      const itemUrl = `${webBase}/item/${data.item_id}`;
-      
+      const dashboardUrl = `${webBase}/dashboard`;
+
       const wishlistLink = document.getElementById("viewWishlistLink");
       if (wishlistLink) {
-        wishlistLink.href = itemUrl;
+        wishlistLink.href = dashboardUrl;
         wishlistLink.onclick = (e) => {
           e.preventDefault();
-          chrome.tabs.create({ url: itemUrl });
+          chrome.tabs.create({ url: dashboardUrl });
         };
       }
 
-      const saveDashLink = document.getElementById("saveTabDashboardLink");
-      if (saveDashLink) {
-        saveDashLink.href = `${webBase}/dashboard`;
-        saveDashLink.onclick = (e) => {
-          e.preventDefault();
-          chrome.tabs.create({ url: `${webBase}/dashboard` });
-        };
-      }
-
-      setWishlistLink(itemUrl);
+      setWishlistLink(dashboardUrl);
     } else {
       const err = await res.json();
       setStatus(err.message || "Save failed.", false);
@@ -745,7 +855,9 @@ document.getElementById("goToDashboardBtn")?.addEventListener("click", async () 
 });
 
 document.getElementById("signOutBtn")?.addEventListener("click", async () => {
+  await clearTokenFromOpenTabs();
   await chrome.storage.local.remove(["jwt", "jwt_origin"]);
+  await chrome.storage.local.set({ manualAuth: "signed-out" });
   currentUserLabel = "";
   await setAuthLine();
   await loadCategories();
@@ -766,8 +878,9 @@ document.getElementById("signInBtn")?.addEventListener("click", async () => {
     });
     const data = await res.json();
     if (res.ok) {
-      await chrome.storage.local.set({ jwt: data.token });
+      await chrome.storage.local.set({ jwt: data.token, manualAuth: "signed-in" });
       currentUserLabel = data.user?.username || data.user?.email || "";
+      await pushTokenToOpenTabs(data.token);
       await setAuthLine();
       await loadCategories();
       setStatus("Signed in!", true);
@@ -784,7 +897,9 @@ document.getElementById("createAccountBtn")?.addEventListener("click", async () 
 
 document.getElementById("syncSessionBtn")?.addEventListener("click", async () => {
   setStatus("Syncing...", true);
+  await chrome.storage.local.remove(["manualAuth"]);
   await syncTokenFromOpenTabs();
+  currentUserLabel = "";
   await setAuthLine();
   await loadCategories();
   setStatus("Synced!", true);

@@ -186,4 +186,29 @@
   .coupons-error {
     @apply mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800;
   }
+  .coupons-daily-card {
+    @apply mb-8 rounded-3xl border border-rose-100/80 bg-gradient-to-br from-white via-rose-50/40 to-orange-50/40 p-6 shadow-sm md:p-7;
+    box-shadow: 0 8px 30px -12px rgba(244, 63, 94, 0.18);
+  }
+  .coupons-daily-card-header {
+    @apply mb-2 flex flex-wrap items-center justify-between gap-3;
+  }
+  .coupons-daily-card-eyebrow {
+    @apply inline-flex items-center rounded-full border border-rose-200 bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-700;
+  }
+  .coupons-daily-card-date {
+    @apply text-xs font-medium text-slate-500;
+  }
+  .coupons-daily-card-title {
+    @apply mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl;
+  }
+  .coupons-daily-card-discount {
+    @apply mt-1 text-base font-semibold text-slate-800;
+  }
+  .coupons-daily-card-fine {
+    @apply mt-2 max-w-2xl text-sm leading-relaxed text-slate-600;
+  }
+  .coupons-daily-card-cta {
+    @apply mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 px-4 py-2 text-sm font-semibold text-white no-underline shadow-sm transition hover:from-rose-600 hover:to-orange-600;
+  }
 }

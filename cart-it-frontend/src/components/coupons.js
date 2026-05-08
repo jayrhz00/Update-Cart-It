@@ -5,13 +5,6 @@ import { LuExternalLink, LuTicket } from "react-icons/lu";
 import "../styles/coupons.css";
 import { apiRequest, publicApiGet } from "./api";
 
-function formatExpiry(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
 const OFFICIAL_OFFERS_BY_HOST = {
   "walmart.com": "https://www.walmart.com/deals",
   "target.com": "https://www.target.com/circle",
@@ -124,19 +117,83 @@ export default function Coupons() {
     return out;
   }, [cartStores]);
 
+  // Pick one curated offer per calendar day so the "today's offer" preview
+  // is stable for the whole day but rotates over the week.
+  const dailyOffer = useMemo(() => {
+    if (!Array.isArray(curated) || curated.length === 0) return null;
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    const pick = curated[dayOfYear % curated.length];
+    if (!pick) return null;
+    const cleanDomain = pick.store_domain
+      ? String(pick.store_domain).replace(/^https?:\/\//i, "")
+      : "";
+    const primary_url =
+      (pick.deals_url && String(pick.deals_url).trim()) ||
+      (cleanDomain ? `https://${cleanDomain}` : null);
+    return { ...pick, primary_url };
+  }, [curated]);
+
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      }),
+    []
+  );
+
   return (
     <div className="dashboard-container">
       <Sidebar showExtension />
       <main className="coupons-main">
         <div className="coupons-hero-pill">
           <LuTicket size={14} aria-hidden />
-          Coupons
+          Offers
         </div>
         <h1 className="coupons-title">Deals to try</h1>
         <p className="coupons-lede">
           We don’t scrape coupon sites. Instead, Cart-It links you to retailer-published offers. Promos can still
           change fast — always confirm at checkout.
         </p>
+
+        <section className="coupons-daily-card" aria-labelledby="daily-offer-heading">
+          <div className="coupons-daily-card-header">
+            <span className="coupons-daily-card-eyebrow">Today’s featured offer</span>
+            <span className="coupons-daily-card-date">{todayLabel}</span>
+          </div>
+          {curatedLoading ? (
+            <p className="coupons-muted">Loading today’s offer…</p>
+          ) : dailyOffer ? (
+            <>
+              <h2 id="daily-offer-heading" className="coupons-daily-card-title">
+                {dailyOffer.store_name}
+              </h2>
+              {dailyOffer.discount_label ? (
+                <p className="coupons-daily-card-discount">{dailyOffer.discount_label}</p>
+              ) : null}
+              {dailyOffer.fine_print ? (
+                <p className="coupons-daily-card-fine">{dailyOffer.fine_print}</p>
+              ) : null}
+              {dailyOffer.primary_url ? (
+                <a
+                  href={dailyOffer.primary_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="coupons-daily-card-cta"
+                  aria-label={`Open today’s featured offer at ${dailyOffer.store_name}`}
+                >
+                  <LuExternalLink size={14} aria-hidden />
+                  Open official offers
+                </a>
+              ) : null}
+            </>
+          ) : (
+            <p className="coupons-muted">Featured offer will appear here soon.</p>
+          )}
+        </section>
 
         {error ? <div className="coupons-error">{error}</div> : null}
 

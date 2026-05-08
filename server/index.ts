@@ -147,6 +147,10 @@ interface UpdateCartItemBody
   refresh_list_price?: boolean;
 }
 
+interface CopyCartItemBody {
+  group_id?: number | null;
+}
+
 interface InviteGroupMemberBody 
 {
   email?: string;
@@ -3318,6 +3322,58 @@ app.post(
       resolvedGroupId = gid;
     }
 
+    // Idempotent save: if the same user already saved this product_url, update that row
+    // instead of inserting a second copy. Explicit duplication into another wishlist still
+    // works through POST /api/cart-items/:id/copy.
+    const existingRow = await pool.query(
+      `SELECT item_id FROM cart_items WHERE user_id = $1 AND product_url = $2 LIMIT 1`,
+      [user_id, productUrl]
+    );
+
+    if (existingRow.rows.length > 0) {
+      const existingItemId = Number(existingRow.rows[0].item_id);
+      const updateFields: string[] = [
+        `item_name = $1`,
+        `current_price = $2`,
+        `is_in_stock = $3`,
+        `store = COALESCE($4, store)`,
+      ];
+      const updateValues: Array<string | number | boolean | null> = [
+        itemName,
+        priceNum,
+        is_in_stock === false ? false : true,
+        storeTruncated,
+      ];
+      let nextIdx = updateValues.length + 1;
+      if (resolvedImage) {
+        updateFields.push(`image_url = $${nextIdx++}`);
+        updateValues.push(resolvedImage);
+      }
+      if (resolvedGroupId != null) {
+        updateFields.push(`group_id = $${nextIdx++}`);
+        updateValues.push(resolvedGroupId);
+      }
+      updateValues.push(existingItemId);
+      await pool.query(
+        `UPDATE cart_items SET ${updateFields.join(", ")} WHERE item_id = $${nextIdx}`,
+        updateValues
+      );
+
+      if (notes !== undefined && notes !== null && String(notes).trim() !== "") {
+        await upsertPrivateNoteForItem(existingItemId, user_id, String(notes));
+      }
+
+      await pool.query(
+        `INSERT INTO price_history (item_id, price) VALUES ($1, $2)`,
+        [existingItemId, priceNum]
+      );
+
+      return res.status(200).json({
+        message: "Item already saved — updated existing entry.",
+        item_id: existingItemId,
+      });
+    }
+
     // Persist item row first (cart_items is the source of truth shown in UI cards).
     const itemResult = await pool.query(
       `
@@ -3376,6 +3432,120 @@ app.post(
       message: "Failed to save item",
     });
   }
+  }
+);
+
+app.post(
+  "/api/cart-items/:id/copy",
+  authenticateToken,
+  async (req: AuthRequest<CopyCartItemBody, { id: string }>, res: Response) => {
+    try {
+      const sourceItemId = Number(req.params.id);
+      const userId = req.user!.userId;
+      if (isNaN(sourceItemId)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+      }
+
+      const source = await pool.query(
+        `
+        SELECT
+          ci.*,
+          COALESCE(
+            ipn.body,
+            CASE WHEN ci.user_id = $2 THEN ci.notes ELSE NULL END
+          ) AS requester_notes
+        FROM cart_items ci
+        LEFT JOIN item_private_notes ipn ON ipn.item_id = ci.item_id AND ipn.user_id = $2
+        WHERE ci.item_id = $1
+        `,
+        [sourceItemId, userId]
+      );
+      if (source.rows.length === 0) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+
+      const sourceRow = source.rows[0];
+      const canCopy = await userCanEditCartItemRow(userId, {
+        user_id: sourceRow.user_id,
+        group_id: sourceRow.group_id,
+      });
+      if (!canCopy) {
+        return res.status(403).json({ message: "You cannot copy this item" });
+      }
+
+      let targetGroupId: number | null = null;
+      if (req.body?.group_id != null) {
+        const gid = Number(req.body.group_id);
+        if (Number.isNaN(gid)) {
+          return res.status(400).json({ message: "Invalid category id" });
+        }
+        const ok = await userCanAccessGroup(userId, gid);
+        if (!ok) {
+          return res.status(400).json({
+            message: "That category does not exist or you cannot save to it.",
+          });
+        }
+        targetGroupId = gid;
+      }
+
+      const inserted = await pool.query(
+        `
+        INSERT INTO cart_items (
+          user_id,
+          group_id,
+          item_name,
+          product_url,
+          image_url,
+          store,
+          current_price,
+          is_in_stock,
+          notes,
+          is_purchased,
+          purchase_price,
+          purchase_date
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, $10, $11)
+        RETURNING *
+        `,
+        [
+          userId,
+          targetGroupId,
+          sourceRow.item_name,
+          sourceRow.product_url,
+          sourceRow.image_url,
+          sourceRow.store,
+          sourceRow.current_price,
+          sourceRow.is_in_stock,
+          sourceRow.is_purchased,
+          sourceRow.purchase_price,
+          sourceRow.purchase_date,
+        ]
+      );
+
+      const copiedItem = inserted.rows[0];
+      const copiedItemId = copiedItem.item_id;
+      const requesterNotes = String(sourceRow.requester_notes || "").trim();
+      if (requesterNotes) {
+        await upsertPrivateNoteForItem(copiedItemId, userId, requesterNotes);
+      }
+      if (copiedItem.current_price != null) {
+        await pool.query(`INSERT INTO price_history (item_id, price) VALUES ($1, $2)`, [
+          copiedItemId,
+          copiedItem.current_price,
+        ]);
+      }
+
+      return res.status(201).json({
+        message: "Item added to wishlist",
+        item: shapeCartItemResponse({
+          ...copiedItem,
+          notes: requesterNotes || null,
+        }),
+      });
+    } catch (error) {
+      console.error("Copy item failed:", error);
+      return res.status(500).json({ message: "Failed to copy item" });
+    }
   }
 );
 

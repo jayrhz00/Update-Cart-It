@@ -53,15 +53,22 @@ export default function NotificationBell({ className = "" }) {
   }, [load]);
 
   useEffect(() => {
-    const id = window.setInterval(load, 60000);
+    // Poll fairly aggressively so collaborators see new wishlist chat messages and
+    // invites without having to refresh the page.
+    const id = window.setInterval(load, 20000);
     const onFocus = () => load();
     const onItems = () => load();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") load();
+    };
     window.addEventListener("focus", onFocus);
     window.addEventListener("cartit:items-updated", onItems);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.clearInterval(id);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("cartit:items-updated", onItems);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [load]);
 
@@ -143,10 +150,13 @@ export default function NotificationBell({ className = "" }) {
       await markRead(n.notification_id);
     }
     setOpen(false);
-    if (n.item_id) {
-      navigate(`/item/${n.item_id}`);
-    } else if (n.group_id) {
+    // Wishlist-anchored notifications (chat posts, invites, group price drops) take the user
+    // straight to that wishlist. Item-only notifications go to the dashboard instead of opening
+    // the standalone /item/:id modal panel.
+    if (n.group_id) {
       navigate(`/wishlist/${n.group_id}`);
+    } else if (n.item_id) {
+      navigate("/dashboard");
     }
   };
 

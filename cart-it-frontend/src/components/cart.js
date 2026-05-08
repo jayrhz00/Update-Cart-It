@@ -270,6 +270,14 @@ const Cart = () => {
                     );
                   })}
                 </select>
+                <button
+                  type="button"
+                  className="tool-btn"
+                  onClick={handleMoveSelected}
+                  disabled={!moveGroupId}
+                >
+                  Move selected
+                </button>
                 <button type="button" className="tool-btn" onClick={handleDeleteSelected}>
                   Remove selected
                 </button>

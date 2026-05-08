@@ -153,7 +153,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleMoveItemToWishlist = async (item, targetGroupId) => {
+  const handleAddItemToWishlist = async (item, targetGroupId) => {
     if (!item) return;
     const parsed = Number(targetGroupId);
     if (!Number.isFinite(parsed)) {
@@ -170,14 +170,19 @@ const Dashboard = () => {
     }
     setMovingItemId(item.item_id);
     try {
-      await apiRequest(`/api/cart-items/${item.item_id}`, {
-        method: "PATCH",
+      await apiRequest(`/api/cart-items/${item.item_id}/copy`, {
+        method: "POST",
         body: JSON.stringify({ group_id: targetGroup }),
+      });
+      setMoveTargets((prev) => {
+        const next = { ...prev };
+        delete next[item.item_id];
+        return next;
       });
       await reload();
       broadcastItemsChanged();
     } catch (error) {
-      alert(error.message || "Could not move this item.");
+      alert(error.message || "Could not add this item to that wishlist.");
     } finally {
       setMovingItemId(null);
     }
@@ -435,12 +440,12 @@ const Dashboard = () => {
                     </label>
                     <div className="mt-2 flex flex-col gap-1 border-t border-slate-100 pt-2">
                       <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                        Move to wishlist
+                        Add to wishlist
                       </span>
                       <select
                         className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-800"
                         disabled={movingItemId === item.item_id}
-                        aria-label={`Move ${item.item_name || "item"} to another list`}
+                        aria-label={`Add ${item.item_name || "item"} to another list`}
                         value={selectVal}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -449,7 +454,7 @@ const Dashboard = () => {
                             [item.item_id]: val,
                           }));
                           if (val !== "") {
-                            handleMoveItemToWishlist(item, val);
+                            handleAddItemToWishlist(item, val);
                           }
                         }}
                       >
@@ -465,7 +470,7 @@ const Dashboard = () => {
                         })}
                       </select>
                       {movingItemId === item.item_id ? (
-                        <span className="text-[10px] text-slate-500">Moving…</span>
+                        <span className="text-[10px] text-slate-500">Adding…</span>
                       ) : null}
                     </div>
                   </div>
