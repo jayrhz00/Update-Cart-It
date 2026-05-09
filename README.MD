@@ -28,7 +28,7 @@ Cart-It is a full-stack product: a **React** web app, a **Node.js** + **Express*
 | **Price & stock** | **Price-drop** and **out-of-stock** awareness via **in-app notifications** (and optional **email** if you configure [Resend](https://resend.com)). A background **price check** can run on the server on an interval. |
 | **Notes** | **Private notes** and **list/item comments** from the **extension** or the **web app** (cart, wishlist, item views). |
 | **Account** | **Sign up / log in**, **forgot password** with **email link** to reset (via Resend + `FRONTEND_URL`), **log out**. |
-| **Offers** | From your cart, open each store’s **official offers** page (hand-picked URLs for common retailers). A short **curated hub list** is served at `GET /api/public/curated-coupons`. Cart-It does **not** aggregate third-party promo codes or guarantee discounts. |
+| **Offers** | From your cart, open each store’s **official offers** page (hand-picked URLs for common retailers). The API also exposes a small **curated retailer hub** list. Cart-It does **not** aggregate third-party promo codes or guarantee discounts. |
 | **Housekeeping** | **Rename** wishlists, **remove** items, **move** items between lists, **mark purchased**, and more from the dashboard and list views. |
 
 > **Note:** A **“recently deleted” / restore** flow is a natural next feature; today, removing an item is typically **permanent** after confirm. See [Roadmap](#roadmap).
@@ -147,12 +147,12 @@ Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `FRONTEND_URL`, and `JWT_SECRET
 
 ## Official offers
 
-The in-app **Offers** page (`/coupons`) is an **offers** link hub, not a coupon database:
+The **Offers** page is a simple **link hub** to retailer-published pages (not a third-party promo-code product):
 
 - **Stores in your cart** — For each product domain, Cart-It opens that retailer’s **official offers** URL when we have a mapping; otherwise it falls back to the store’s site.
-- **Curated retailer list** — `GET /api/public/curated-coupons` returns hand-maintained rows (store name, optional offers URL, labels). Users follow **Open official offers** in a new tab.
+- **Curated retailer list** — A public read-only endpoint returns hand-maintained rows (store name, optional offers URL, labels). Users open **Open official offers** in a new tab.
 
-Older API routes or tables related to community codes / AI ranking may still exist in the codebase or database from prior iterations; the current UI focuses on **official retailer offers** only.
+The repo may still contain unused tables or routes from earlier coursework iterations; what this README describes is **official-offer links only**.
 
 ---
 
