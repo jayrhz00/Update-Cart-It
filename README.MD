@@ -28,7 +28,7 @@ Cart-It is a full-stack product: a **React** web app, a **Node.js** + **Express*
 | **Price & stock** | **Price-drop** and **out-of-stock** awareness via **in-app notifications** (and optional **email** if you configure [Resend](https://resend.com)). A background **price check** can run on the server on an interval. |
 | **Notes** | **Private notes** and **list/item comments** from the **extension** or the **web app** (cart, wishlist, item views). |
 | **Account** | **Sign up / log in**, **forgot password** with **email link** to reset (via Resend + `FRONTEND_URL`), **log out**. |
-| **Coupons** | A **Coupons** page with **AI coupon suggestions by store**, a **Most used today** feed, curated starter codes, and your private saved codes. Feedback buttons (**copied / worked / failed**) improve ranking over time. |
+| **Offers** | From your cart, open each store’s **official offers** page (hand-picked URLs for common retailers). A short **curated hub list** is served at `GET /api/public/curated-coupons`. Cart-It does **not** aggregate third-party promo codes or guarantee discounts. |
 | **Housekeeping** | **Rename** wishlists, **remove** items, **move** items between lists, **mark purchased**, and more from the dashboard and list views. |
 
 > **Note:** A **“recently deleted” / restore** flow is a natural next feature; today, removing an item is typically **permanent** after confirm. See [Roadmap](#roadmap).
@@ -39,7 +39,7 @@ Cart-It is a full-stack product: a **React** web app, a **Node.js** + **Express*
 
 ```
 Cart_It/
-├── cart-it-frontend/     # React (CRA) + Tailwind — landing, dashboard, cart, wishlists, coupons, auth
+├── cart-it-frontend/     # React (CRA) + Tailwind — landing, dashboard, cart, wishlists, offers hub, auth
 ├── server/               # Express + TypeScript + PostgreSQL — REST API, ScrapingBee helpers, jobs
 ├── extension/            # Chrome/Edge MV3 — side panel, background, content scripts
 └── README.md
@@ -145,19 +145,14 @@ Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `FRONTEND_URL`, and `JWT_SECRET
 
 ---
 
-## Coupons + AI ranking (new)
+## Official offers
 
-Cart-It now supports a lightweight coupon intelligence loop:
+The in-app **Offers** page (`/coupons`) is an **offers** link hub, not a coupon database:
 
-- **Public curated coupons** (`GET /api/public/curated-coupons`)
-- **Top used today** leaderboard (`GET /api/public/coupons/top-today`)
-- **AI suggestions by store** (`GET /api/coupons/ai-suggestions?store=...`, authenticated)
-- **Feedback events** (`POST /api/coupons/feedback`, authenticated) with outcomes:
-  - `copied`
-  - `used`
-  - `failed`
+- **Stores in your cart** — For each product domain, Cart-It opens that retailer’s **official offers** URL when we have a mapping; otherwise it falls back to the store’s site.
+- **Curated retailer list** — `GET /api/public/curated-coupons` returns hand-maintained rows (store name, optional offers URL, labels). Users follow **Open official offers** in a new tab.
 
-Feedback is stored in `coupon_usage_events` and used to score coupon trust/relevance by recency and success rate.
+Older API routes or tables related to community codes / AI ranking may still exist in the codebase or database from prior iterations; the current UI focuses on **official retailer offers** only.
 
 ---
 
@@ -176,8 +171,8 @@ Typical production split:
 ## Roadmap / ideas
 
 - **Recently deleted** bucket with restore (soft-delete for cart items).
-- Stronger **coupon source integrations** (affiliate/partner feeds, approved syndication APIs).
-- Store-level trend analytics + anti-spam heuristics for coupon feedback quality.
+- Deeper **retailer-specific** offer links (more domains, regional storefronts).
+- Optional **affiliate-safe** integrations if you later want syndicated offers with clear sourcing.
 
 ---
 
