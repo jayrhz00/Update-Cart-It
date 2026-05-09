@@ -18,9 +18,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 // Each app.get / app.post is a route React app calls
 // authenticateToken: middleware runs BEFORE the route handler; checks JWT
 // JWT: JSON Web Token — proves "this request is from user X" without sending password again.
- // pool (from db.ts): connection pool to PostgreSQL — runs SQL queries.
+ // pool (from db.ts): connection pool to PostgreSQL runs SQL queries.
  // storage: helper class for user/group rows (some routes use pool directly).
- // On startup we run schema.sql once so all 6 tables exist (see initializeDatabase).
+ // On startup we run schema.sql once so all 9 tables exist (see initializeDatabase).
  
 dotenv.config();
 
@@ -84,12 +84,12 @@ interface CreateCartItemBody
   product_url: string;
   image_url?: string | null;
   store?: string | null;
-  /** Primary field used by the React app + extension today. */
+  // Primary field used by the React app + extension today
   current_price?: number;
-  /**
-   * Legacy / alternate name some clients send.
-   * WHY: Early extension drafts used `price`; we still accept it so saves never silently become $0.
-   */
+  
+   // Legacy / alternate name some clients send.
+   // WHY: Early extension drafts used price; we still accept it so saves never silently become $0.
+   
   price?: number;
   is_in_stock?: boolean;
   notes?: string | null;
@@ -103,22 +103,21 @@ interface UpdateCartItemBody
   image_url?: string | null;
   store?: string | null;
   current_price?: number;
-  /** Saved only for the authenticated user (item_private_notes). */
+  // Saved only for the authenticated user (item_private_notes)
   notes?: string | null;
   is_purchased?: boolean;
-  /**
-   * Friendly alias for `is_purchased` (assignment-friendly naming).
-   * WHAT: Same column in Postgres — we map it in the PATCH handler.
-   */
+  
+   // Same column in Postgres maps it in the PATCH handler
+   
   purchased?: boolean;
   purchase_price?: number | null;
   is_in_stock?: boolean;
-  /**
-   * Friendly inverse of `is_in_stock`.
-   * WHAT: `out_of_stock: true` means we set `is_in_stock = false` in the database.
-   */
+  
+   // "is_in_stock"
+   // WHAT: out_of_stock: true means we set is_in_stock = false in the db
+   
   out_of_stock?: boolean;
-  /** When true, server re-fetches `product_url` and updates `current_price` (fixes bad scrapes like Amazon “$35 shipping”). */
+  // When true, server re-fetches product_url and updates current_price (fixes bad scrapes like Amazon “$35 shipping”)
   refresh_list_price?: boolean;
 }
 
@@ -129,7 +128,7 @@ interface CopyCartItemBody {
 interface InviteGroupMemberBody 
 {
   email?: string;
-  /** Optional: invite by Cart-It user id instead of email (useful for demos / internal tools). */
+  // Optional: invite by Cart-It user id instead of email (useful for demos / internal tools). 
   user_id?: number;
   role?: "Editor" | "Owner";
 }
@@ -159,7 +158,7 @@ const PRICE_CHECK_DISABLED =
 const PRICE_CHECK_INTERVAL_MINUTES = PRICE_CHECK_DISABLED
   ? 0
   : Number(process.env.PRICE_CHECK_INTERVAL_MINUTES || 180);
-/** Same value must be sent as header `X-Cart-It-Cron-Secret` when calling POST /api/internal/run-price-check (Render Cron, etc.). */
+// Same value must be sent as header X-Cart-It-Cron-Secret when calling POST /api/internal/run-price-check Render Cron
 const PRICE_CHECK_CRON_SECRET = String(process.env.PRICE_CHECK_CRON_SECRET || "").trim();
 const RESET_PASSWORD_EXP_MINUTES = Math.max(
   5,
@@ -747,10 +746,10 @@ function extractPriceFromHtml(html: string): number | null {
   return null;
 }
 
-/**
- * Normalize schema.org availability URLs or short names to a lowercase token
- * (e.g. https://schema.org/InStock -> "instock").
- */
+
+ // Normalize schema.org availability URLs or short names to a lowercase token
+ // (e.g. https://schema.org/InStock -> "instock").
+ 
 function normalizeSchemaAvailabilityValue(raw: string): string | null {
   const s = String(raw).trim();
   const m = s.match(/(?:https?:\/\/schema\.org\/)?([A-Za-z]+)\s*$/i);
@@ -782,10 +781,10 @@ function collectAvailabilityTokensFromJsonLdValue(node: unknown, acc: Set<string
   }
 }
 
-/**
- * Reads every JSON-LD block so multi-variant PDPs (some sizes OOS, some in stock)
- * only resolve to "out of stock" when no offer is still purchasable.
- */
+
+ // Reads every JSON-LD block so multi-variant PDPs (some sizes OOS, some in stock)
+ // only resolve to "out of stock" when no offer is still purchasable
+
 function extractStockFromJsonLd(html: string): boolean | null {
   const jsonLdBlocks =
     html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
@@ -866,7 +865,7 @@ function extractStockFromHtml(html: string): boolean | null {
   return null;
 }
 
-/** Hostnames where a plain server-side fetch often returns bot walls or HTML without og:image (images then fail in the app). */
+// Hostnames where a plain server-side fetch often returns bot walls or HTML without og:image (images then fail in the app)
 function isAmazonProductUrl(url: string): boolean {
   try {
     const h = new URL(url).hostname.replace(/^www\./, "");
@@ -886,7 +885,7 @@ function normalizeProductImageUrl(raw: string, pageUrl: string): string | null {
   }
 }
 
-/** Skip Amazon placeholder / UI chrome URLs we never want as the product card image. */
+// Skip Amazon placeholder / UI chrome URLs never want as the product card image
 function isLikelyAmazonPlaceholderImageUrl(u: string): boolean {
   const s = u.toLowerCase();
   return (
@@ -942,14 +941,14 @@ function extractAmazonHiResFromScripts(html: string, pageUrl: string): string | 
   return null;
 }
 
-/**
- * Best-effort main product image from public PDP HTML (same signals as browsers use for previews).
- * Used when the extension omits image_url or Amazon serves empty og:image to scripted fetches.
- *
- * Amazon "Used / refurbished" and some PDP variants omit `landingImage` src in the initial HTML,
- * use only `data-old-hires`, put URLs inside script JSON (`hiRes`), or include multiple
- * `data-a-dynamic-image` blobs — ScrapingBee uses render_js=false so we must parse those static cues.
- */
+
+ // Best-effort main product image from public PDP HTML (same signals as browsers use for previews)
+ // Used when the extension omits image_url or Amazon serves empty og:image to scripted fetches
+ 
+ // Amazon "Used / refurbished" and some PDP variants omit landingImage src in the initial HTML,
+ // use only data-old-hires, put URLs inside script JSON (`hiRes`), or include multiple
+ // data-a-dynamic-image blobs, ScrapingBee uses render_js=false so we must parse those static cues
+
 function extractProductImageFromHtml(html: string, pageUrl: string): string | null {
   const ogMatch =
     html.match(/<meta[^>]+property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
@@ -1037,10 +1036,10 @@ async function fetchHtmlViaScrapingBee(url: string): Promise<string | null> {
   }
 }
 
-/**
- * HTML for a product URL: direct fetch first, then ScrapingBee when configured (required for many Amazon PDPs).
- * ScrapingBee: set SCRAPINGBEE_API_KEY in `.env` (see `.env.example`).
- */
+
+ // HTML for a product URL: direct fetch first, then ScrapingBee when configured (required for many Amazon PDPs).
+ // ScrapingBee: set SCRAPINGBEE_API_KEY in .env (see .env.example)
+
 async function fetchHtmlForProductUrl(url: string): Promise<string | null> {
   const useBee = scrapingBeeConfigured();
   if (useBee && isAmazonProductUrl(url)) {
@@ -1076,7 +1075,7 @@ async function fetchHtmlForProductUrl(url: string): Promise<string | null> {
       return html;
     }
   } catch {
-    /* fall through */
+    //fall through 
   } finally {
     clearTimeout(timeout);
   }
@@ -1287,12 +1286,12 @@ app.get("/", (_req: Request, res: Response) => {
   res.status(200).send("Cart-It server is running");
 });
 
-/** Public curated promo examples for the Coupons page (no auth). */
+// Used to show "popular retailers" on offers page
 app.get("/api/public/curated-coupons", (_req: Request, res: Response) => {
   res.status(200).json(CURATED_COUPONS);
 });
 
-/** POST /api/ai/summarize — Use Gemini to summarize product details. */
+// POST /api/ai/summarize: Use Gemini to summarize product details
 app.post("/api/ai/summarize", authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const apiKey = process.env.GOOGLE_AI_API_KEY;
@@ -1333,11 +1332,11 @@ app.get("/test-db", async (_req: Request, res: Response) => {
   }
 });
 
-/**
- * POST /api/internal/run-price-check — run one price/stock pass (same logic as the in-process timer).
- * Secured with PRICE_CHECK_CRON_SECRET (header `X-Cart-It-Cron-Secret`). Use from Render Cron or Uptime
- * when the web service sleeps and setInterval is not enough.
- */
+
+ // POST /api/internal/run-price-check — run one price/stock pass (same logic as the in-process timer)
+ // Secured with PRICE_CHECK_CRON_SECRET (header X-Cart-It-Cron-Secret). Use from Render Cron or Uptime
+ //when the web service sleeps and setInterval is not enough
+ 
 app.post("/api/internal/run-price-check", async (req: Request, res: Response) => {
   if (!PRICE_CHECK_CRON_SECRET) {
     return res.status(503).json({
@@ -1625,10 +1624,10 @@ app.get("/api/me", authenticateToken, async (req: AuthRequest, res: Response) =>
   }
 });
 
-/**
- * Safe feature flags for the signed-in client (no secrets).
- * Used by the web app to explain optional email alerts vs in-app notifications only.
- */
+
+ // Safe feature flags for the signed-in client 
+ // Used by the web app to explain optional email alerts vs in-app notifications only.
+
 app.get("/api/me/features", authenticateToken, async (_req: AuthRequest, res: Response) => {
   const resendKey = String(process.env.RESEND_API_KEY || "").trim();
   const resendFrom = String(process.env.RESEND_FROM_EMAIL || "").trim();
@@ -1637,7 +1636,7 @@ app.get("/api/me/features", authenticateToken, async (_req: AuthRequest, res: Re
   });
 });
 
-/** Signed URL token for read-only /share/:token (cart). No DB migration — JWT embeds owner user id. */
+// Signed URL token for read only /share/:token (cart). No DB migration — JWT embeds owner user id
 app.get("/api/me/public-cart-token", authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const token = jwt.sign(
@@ -1652,7 +1651,7 @@ app.get("/api/me/public-cart-token", authenticateToken, async (req: AuthRequest,
   }
 });
 
-/** Signed URL token for read-only wishlist share (/share-wishlist/:token/:groupId). */
+// Signed URL token for read-only wishlist share (/share-wishlist/:token/:groupId)
 app.get(
   "/api/groups/:id/public-share-token",
   authenticateToken,
@@ -1696,7 +1695,7 @@ function shapePublicCartRow(
   };
 }
 
-/** Read-only: unpurchased items for the cart owner (matches “still shopping” snapshot). */
+// Read only: unpurchased items for the cart owner (matches “still shopping” snapshot)
 app.get("/api/public/cart/:token", async (req: Request, res: Response) => {
   try {
     const raw = String(req.params.token || "").trim();
@@ -1725,7 +1724,7 @@ app.get("/api/public/cart/:token", async (req: Request, res: Response) => {
   }
 });
 
-/** Read-only: unpurchased items in a wishlist when token matches group id. */
+// Read only: unpurchased items in a wishlist when token matches group id
 app.get(
   "/api/public/wishlist/:token/:groupId",
   async (req: Request, res: Response) => {
@@ -1784,17 +1783,6 @@ app.get(
 // - Wishlist page calls /api/groups/:id for one list and /api/groups/:id/invite for collaboration.
 // - Create modal on dashboard calls POST /api/groups.
 
-/**
- * GET /api/groups — wishlists the logged-in user should see in the sidebar + dashboard.
- *
- * WHY two SELECTs glued with UNION ALL:
- *   1) First branch: lists YOU created (you are always the Owner row in `groups`).
- *   2) Second branch: lists someone ELSE owns but invited you to — those memberships live in
- *      `group_members`. Without the JOIN, User B would never see User A's shared list after invite.
- *
- * WHAT we return: one combined list, newest first, each row tagged with `access_role` so the UI
- * can show owner-only controls (rename/delete) vs collaborator controls.
- */
 app.get("/api/groups", authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
@@ -2371,7 +2359,7 @@ app.get("/api/price-history", authenticateToken, async (req: AuthRequest, res: R
   }
 });
 
-/** Price chart data for one item (modal). Rows shaped as `{ date, price }` for Recharts. */
+// Price chart data for one item. Rows shaped as { date, price } 
 app.get(
   "/api/cart-items/:id/price-history",
   authenticateToken,
@@ -2465,16 +2453,9 @@ app.get("/api/group-members", authenticateToken, async (req: AuthRequest, res: R
   }
 });
 
-/**
- * POST /api/groups/:id/invite — add a collaborator to a shared wishlist.
- *
- * WHAT you can send (pick ONE lookup style — both end up as the same `group_members` row):
- *   • `{ "email": "friend@school.edu" }` — most human-friendly for demos.
- *   • `{ "user_id": 12 }` — handy when you already know their Cart-It id from `/api/users` etc.
- *
- * WHY we still require an existing Cart-It account:
- *   Invites attach a real `user_id` foreign key — we cannot invite random emails that are not users yet.
- */
+ // add a collaborator to a shared wishlist.
+ // Invites attach a real user_id foreign key cannot invite random emails that are not users yet
+ 
 app.post(
   "/api/groups/:id/invite",
   authenticateToken,
@@ -2609,16 +2590,14 @@ app.post(
   }
 );
 
-/**
- * POST /api/cart-items — save a product row (extension + website both hit this).
- *
- * WHY user_id never comes from JSON:
- *   Trust the signed-in user from the JWT only — prevents someone forging saves under another account.
- *
- * WHY we accept BOTH `current_price` and `price`:
- *   Different clients evolved at different times; accepting both avoids silent $0 inserts when the
- *   field name does not match exactly.
- */
+
+ // POST /api/cart-items , save a product row (extension + website both hit this).
+ // WHY user_id never comes from JSON:
+ // Trust the signed in user from the JWT only, prevents someone forging saves under another account.
+ // WHY we accept BOTH `current_price` and `price`:
+ // Different clients evolved at different times; accepting both avoids silent $0 inserts when the
+ // field name does not match exactly.
+
 app.post(
   "/api/cart-items",
   authenticateToken,
@@ -2648,7 +2627,7 @@ app.post(
       console.log("POST /api/cart-items body:", req.body, "product_url:", productUrl);
     }
 
-    // Accept `current_price` and legacy `price`; coerce strings ("199,00", "$130") like the price checker.
+    // Accept current_price and legacy price; coerce strings ("199,00", "$130") like the price checker.
     const fromCurrent = parsePositivePrice(current_price);
     const fromLegacy = parsePositivePrice(price);
     let priceNum =
@@ -2691,11 +2670,11 @@ app.post(
       });
     }
 
-    /**
-     * Amazon PDPs often mislead pure DOM scrapes (e.g. “free shipping over $35”).
-     * When ScrapingBee is configured we fetch the same HTML path as the price-check job and prefer
-     * server-side price + image for Amazon saves (extension + website).
-     */
+    
+     // Amazon PDPs mislead pure DOM scrapes (ex “free shipping over $35”).
+     // When ScrapingBee is configured we fetch the same HTML path as the price-check job and prefer
+     // server side price + image for Amazon saves (extension + website).
+     
     let resolvedImage: string | null =
       typeof image_url === "string" && image_url.trim() !== "" ? image_url.trim() : null;
     const enrichAmazonFlag = String(process.env.SCRAPINGBEE_ENRICH_AMAZON ?? "1")
@@ -2760,7 +2739,7 @@ app.post(
       resolvedGroupId = gid;
     }
 
-    // Idempotent save: if the same user already saved this product_url, update that row
+    // if the same user already saved this product_url, update that row
     // instead of inserting a second copy. Explicit duplication into another wishlist still
     // works through POST /api/cart-items/:id/copy.
     const existingRow = await pool.query(
@@ -2832,7 +2811,7 @@ app.post(
       ]
     );
 
-    // STEP 4: Get the new item's ID
+    // Get the new item's ID
     // PostgreSQL returns the new item_id so we can use it next
     const newItemId = itemResult.rows[0].item_id;
 
@@ -2840,7 +2819,7 @@ app.post(
       await upsertPrivateNoteForItem(newItemId, user_id, String(notes));
     }
 
-    // STEP 5: Insert into price_history
+    // Insert into price_history
     // This starts tracking the item's price over time
     await pool.query(
       `
@@ -2850,7 +2829,7 @@ app.post(
       [newItemId, priceNum]
     );
 
-    // STEP 6: Send success response back to frontend
+    // Send success response back to frontend
     // This tells React/extension that everything worked
     res.status(201).json({
       message: "Item saved successfully",
@@ -3019,20 +2998,20 @@ app.patch(
       } = req.body;
       let normalizedPurchasePrice = purchase_price;
 
-      /**
-       * STUDENT NOTE — two names, one database column
-       * `is_purchased` is what Postgres stores. Some teammates POST `{ purchased: true }` instead.
-       * We merge so either spelling updates the same boolean column.
-       */
+      
+       // two names one database column
+       // is_purchased is what Postgres stores. Some teammates POST { purchased: true } instead
+       // merge so either spelling updates the same boolean column
+      
       const mergedIsPurchased =
         is_purchased !== undefined ? is_purchased : purchased;
 
-      /**
-       * STUDENT NOTE — stock flags
-       * DB column: `is_in_stock` (true = available).
-       * Some APIs prefer `out_of_stock` (true = NOT available) — we translate here.
-       * If BOTH are sent, `is_in_stock` wins because it is the direct column name.
-       */
+      
+       // stock flags
+       // DB column: is_in_stock (true = available).
+       // Some APIs prefer out_of_stock (true = NOT available) 
+       // If BOTH are sent, is_in_stock wins b/c it is the direct column name
+       
       let mergedInStock: boolean | undefined = undefined;
       if (is_in_stock !== undefined) {
         if (typeof is_in_stock !== "boolean") {
