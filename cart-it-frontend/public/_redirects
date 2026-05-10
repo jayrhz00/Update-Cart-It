@@ -1,2 +1,3 @@
-# Serve the extension install document at the clean URL (Cloudflare Pages, Netlify, etc.)
-/extension-install /extension-install.html 200
+# Client-side routes (React Router). Avoid rewriting /extension-install to
+# extension-install.html — a separate edge rule that strips .html can loop.
+/* /index.html 200
