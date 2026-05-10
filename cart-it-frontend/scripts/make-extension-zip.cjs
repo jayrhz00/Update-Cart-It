@@ -1,17 +1,72 @@
 /**
  * Packs ../extension into browser-specific zips for extension-install.html.
  * Runs automatically before `react-scripts build` (see package.json prebuild).
+ *
+ * Windows + OneDrive: if writing to `public/*.zip` fails with UNKNOWN / errno -4094,
+ * set `CART_IT_ZIP_OUTPUT_DIR` to a plain local folder (e.g. C:\temp\cart-zips), then
+ * copy the three zips into `cart-it-frontend/public/` before `git add` / deploy.
  */
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const archiver = require("archiver");
+
+/**
+ * Build the zip on the system temp drive first, then copy into `finalPath`.
+ * Writing directly into OneDrive/Desktop paths often fails on Windows (UNKNOWN / errno -4094)
+ * when sync or another app (e.g. Firefox with the zip loaded) locks the file.
+ */
+async function writeZipToPath(finalPath, populate) {
+  fs.mkdirSync(path.dirname(finalPath), { recursive: true });
+  const tmpZip = path.join(
+    os.tmpdir(),
+    `${path.basename(finalPath, ".zip")}-${process.pid}.zip`
+  );
+  const output = fs.createWriteStream(tmpZip);
+  const archive = archiver("zip", { zlib: { level: 9 } });
+  const done = new Promise((resolve, reject) => {
+    output.on("close", resolve);
+    output.on("error", reject);
+    archive.on("error", reject);
+  });
+  archive.pipe(output);
+  await populate(archive);
+  await archive.finalize();
+  await done;
+  try {
+    try {
+      fs.rmSync(finalPath, { force: true });
+    } catch {
+      /* ignore */
+    }
+    fs.copyFileSync(tmpZip, finalPath);
+  } catch (e) {
+    console.error(
+      "make-extension-zip: could not write",
+      finalPath,
+      "- close Firefox if it loaded this zip, pause OneDrive sync, or set CART_IT_ZIP_OUTPUT_DIR to a non-OneDrive folder (see script top comment)."
+    );
+    throw e;
+  } finally {
+    try {
+      fs.unlinkSync(tmpZip);
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 const frontendRoot = path.join(__dirname, "..");
 const repoRoot = path.join(frontendRoot, "..");
 const extDir = path.join(repoRoot, "extension");
-const outChromiumPath = path.join(frontendRoot, "public", "cart-it-extension-chromium.zip");
-const outFirefoxPath = path.join(frontendRoot, "public", "cart-it-extension-firefox.zip");
-const outLegacyPath = path.join(frontendRoot, "public", "cart-it-extension.zip");
+/** Override output folder when OneDrive locks `public/*.zip` (Windows errno -4094). */
+const zipOutDir =
+  process.env.CART_IT_ZIP_OUTPUT_DIR && String(process.env.CART_IT_ZIP_OUTPUT_DIR).trim() !== ""
+    ? path.resolve(String(process.env.CART_IT_ZIP_OUTPUT_DIR).trim())
+    : path.join(frontendRoot, "public");
+const outChromiumPath = path.join(zipOutDir, "cart-it-extension-chromium.zip");
+const outFirefoxPath = path.join(zipOutDir, "cart-it-extension-firefox.zip");
+const outLegacyPath = path.join(zipOutDir, "cart-it-extension.zip");
 
 function collectFiles(dir, base = dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
@@ -40,46 +95,35 @@ async function main() {
     console.warn("make-extension-zip: extension folder empty");
     process.exit(0);
   }
-  fs.mkdirSync(path.dirname(outChromiumPath), { recursive: true });
+  let chromiumBytes = 0;
+  let firefoxBytes = 0;
 
   // Chromium package (Chrome + Edge): use manifest.json and exclude firefox-only manifest file.
-  const chromiumOutput = fs.createWriteStream(outChromiumPath);
-  const chromiumArchive = archiver("zip", { zlib: { level: 9 } });
-  const chromiumDone = new Promise((resolve, reject) => {
-    chromiumOutput.on("close", resolve);
-    chromiumArchive.on("error", reject);
+  await writeZipToPath(outChromiumPath, async (chromiumArchive) => {
+    for (const { full, rel } of files) {
+      if (rel === "manifest.firefox.json") continue;
+      chromiumArchive.file(full, { name: rel });
+    }
   });
-  chromiumArchive.pipe(chromiumOutput);
-  for (const { full, rel } of files) {
-    if (rel === "manifest.firefox.json") continue;
-    chromiumArchive.file(full, { name: rel });
-  }
-  await chromiumArchive.finalize();
-  await chromiumDone;
+  chromiumBytes = fs.statSync(outChromiumPath).size;
 
   // Firefox package: map manifest.firefox.json -> manifest.json.
   const firefoxManifestPath = path.join(extDir, "manifest.firefox.json");
   const firefoxManifest = fs.readFileSync(firefoxManifestPath, "utf8");
-  const firefoxOutput = fs.createWriteStream(outFirefoxPath);
-  const firefoxArchive = archiver("zip", { zlib: { level: 9 } });
-  const firefoxDone = new Promise((resolve, reject) => {
-    firefoxOutput.on("close", resolve);
-    firefoxArchive.on("error", reject);
+  await writeZipToPath(outFirefoxPath, async (firefoxArchive) => {
+    for (const { full, rel } of files) {
+      if (rel === "manifest.json" || rel === "manifest.firefox.json") continue;
+      firefoxArchive.file(full, { name: rel });
+    }
+    firefoxArchive.append(firefoxManifest, { name: "manifest.json" });
   });
-  firefoxArchive.pipe(firefoxOutput);
-  for (const { full, rel } of files) {
-    if (rel === "manifest.json" || rel === "manifest.firefox.json") continue;
-    firefoxArchive.file(full, { name: rel });
-  }
-  firefoxArchive.append(firefoxManifest, { name: "manifest.json" });
-  await firefoxArchive.finalize();
-  await firefoxDone;
+  firefoxBytes = fs.statSync(outFirefoxPath).size;
 
   // Legacy path kept so existing links still work.
   fs.copyFileSync(outChromiumPath, outLegacyPath);
 
-  console.log("make-extension-zip: chromium", outChromiumPath, `(${chromiumArchive.pointer()} bytes)`);
-  console.log("make-extension-zip: firefox ", outFirefoxPath, `(${firefoxArchive.pointer()} bytes)`);
+  console.log("make-extension-zip: chromium", outChromiumPath, `(${chromiumBytes} bytes)`);
+  console.log("make-extension-zip: firefox ", outFirefoxPath, `(${firefoxBytes} bytes)`);
   console.log("make-extension-zip: legacy  ", outLegacyPath);
 }
 

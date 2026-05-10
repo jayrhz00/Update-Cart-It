@@ -1529,10 +1529,13 @@ async function loadCategories() {
   const sel = document.getElementById("category");
   if (!sel) return;
   
-  if (!jwt) {
-    sel.innerHTML = '<option value="">No category</option>';
-    return;
-  }
+  sel.innerHTML = ""; // Safe for clearing
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "";
+  noneOpt.textContent = "No category";
+  sel.appendChild(noneOpt);
+
+  if (!jwt) return;
   
   try {
     const res = await fetch(`${base}/api/groups`, {
@@ -1553,7 +1556,12 @@ function renderCategoryOptions() {
   
   const prev = sel.value;
   const scope = scopeEl?.value || "Private";
-  sel.innerHTML = '<option value="">No category</option>';
+  
+  sel.innerHTML = ""; // Safe for clearing
+  const noneOpt = document.createElement("option");
+  noneOpt.value = "";
+  noneOpt.textContent = "No category";
+  sel.appendChild(noneOpt);
   
   const filtered = cachedGroups.filter((g) => String(g.visibility || "Private") === scope);
   for (const g of filtered) {
@@ -1572,12 +1580,23 @@ async function loadWishlistItems() {
   const jwt = await resolveJwt();
   const base = await apiBase();
   
+  container.innerHTML = "";
   if (!jwt) {
-    container.innerHTML = '<div class="empty-state"><p>Sign in to view your items.</p></div>';
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    const p = document.createElement("p");
+    p.textContent = "Sign in to view your items.";
+    empty.appendChild(p);
+    container.appendChild(empty);
     return;
   }
   
-  container.innerHTML = '<div class="empty-state"><p>Loading items...</p></div>';
+  const loading = document.createElement("div");
+  loading.className = "empty-state";
+  const lp = document.createElement("p");
+  lp.textContent = "Loading items...";
+  loading.appendChild(lp);
+  container.appendChild(loading);
   
   try {
     const gidRaw = document.getElementById("category").value;
@@ -1588,51 +1607,77 @@ async function loadWishlistItems() {
     });
     const items = await res.json();
     
+    container.innerHTML = "";
     if (!res.ok || !Array.isArray(items) || items.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No items found in this category.</p></div>';
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      const p = document.createElement("p");
+      p.textContent = "No items found in this category.";
+      empty.appendChild(p);
+      container.appendChild(empty);
       return;
     }
     
-    container.innerHTML = "";
     items.forEach((item) => {
       const el = document.createElement("div");
       el.className = "wishlist-item";
-      el.innerHTML = `
-        <img src="${item.image_url || ""}" alt="" />
-        <div class="wishlist-item-info">
-          <p class="wishlist-item-name">${truncate(item.item_name, 40)}</p>
-          <p class="wishlist-item-price">$${Number(item.current_price || 0).toFixed(2)}</p>
-          <div class="wishlist-item-actions">
-            <button class="action-icon-btn open-btn" title="Open product">🔗</button>
-            <button class="action-icon-btn delete-btn" title="Delete">🗑️</button>
-          </div>
-        </div>
-      `;
-      const thumb = el.querySelector("img");
-      if (thumb) {
-        const fallbackSrc = chrome.runtime.getURL("icon-128.png");
-        if (!item.image_url) thumb.src = fallbackSrc;
-        thumb.addEventListener(
-          "error",
-          () => {
-            thumb.src = fallbackSrc;
-          },
-          { once: true }
-        );
-      }
-      el.querySelector(".open-btn").addEventListener("click", () => chrome.tabs.create({ url: item.product_url }));
-      el.querySelector(".delete-btn").addEventListener("click", async () => {
+      
+      const img = document.createElement("img");
+      img.alt = "";
+      const fallbackSrc = chrome.runtime.getURL("icon-128.png");
+      img.src = item.image_url || fallbackSrc;
+      img.onerror = () => { img.src = fallbackSrc; };
+      el.appendChild(img);
+
+      const info = document.createElement("div");
+      info.className = "wishlist-item-info";
+      
+      const name = document.createElement("p");
+      name.className = "wishlist-item-name";
+      name.textContent = truncate(item.item_name, 40);
+      info.appendChild(name);
+
+      const price = document.createElement("p");
+      price.className = "wishlist-item-price";
+      price.textContent = `$${Number(item.current_price || 0).toFixed(2)}`;
+      info.appendChild(price);
+
+      const actions = document.createElement("div");
+      actions.className = "wishlist-item-actions";
+
+      const openBtn = document.createElement("button");
+      openBtn.className = "action-icon-btn open-btn";
+      openBtn.title = "Open product";
+      openBtn.textContent = "🔗";
+      openBtn.onclick = () => chrome.tabs.create({ url: item.product_url });
+      actions.appendChild(openBtn);
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "action-icon-btn delete-btn";
+      delBtn.title = "Delete";
+      delBtn.textContent = "🗑️";
+      delBtn.onclick = async () => {
         if (!confirm("Delete this item?")) return;
         await fetch(`${base}/api/cart-items/${item.item_id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${jwt}` },
         });
         loadWishlistItems();
-      });
+      };
+      actions.appendChild(delBtn);
+
+      info.appendChild(actions);
+      el.appendChild(info);
       container.appendChild(el);
     });
   } catch (e) {
-    container.innerHTML = '<div class="empty-state"><p>Error loading items.</p></div>';
+    container.innerHTML = "";
+    const err = document.createElement("div");
+    err.className = "empty-state";
+    const p = document.createElement("p");
+    p.textContent = "Error loading items.";
+    err.appendChild(p);
+    container.appendChild(err);
   }
 }
 
@@ -1854,11 +1899,15 @@ document.getElementById("closePanelBtn")?.addEventListener("click", () => {
   window.close();
 });
 
-// Auto-refresh when tab changes or loads
-chrome.tabs.onActivated.addListener(() => refreshFromTab());
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === "complete") refreshFromTab();
-});
+// Auto-refresh when tab changes or loads (Firefox popup can throw if tabs events are restricted)
+try {
+  chrome.tabs.onActivated.addListener(() => refreshFromTab());
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === "complete") refreshFromTab();
+  });
+} catch {
+  /* ignore */
+}
 
 // Initialization
 async function init() {

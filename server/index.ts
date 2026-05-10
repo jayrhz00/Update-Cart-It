@@ -718,7 +718,48 @@ function extractShopifyCentsPricesFromHtml(html: string): number | null {
   return lo;
 }
 
-function extractPriceFromHtml(html: string): number | null {
+/**
+ * Script blobs often encode prices as minor units (11000 → $110) but some use whole
+ * dollars as integers (110 → $110). Blind n/100 turns the latter into $1.10 and triggers
+ * false price-drop alerts. Use DB hint when available; otherwise heuristics for 3-digit values.
+ */
+function interpretBareIntegerPriceToken(
+  n: number,
+  hint: number | null | undefined
+): number | null {
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
+  const asDollars = n < 50000 ? n : null;
+  const asFromCents =
+    n >= 100 && n <= 99_999_999 ? n / 100 : null;
+  if (asFromCents != null && (asFromCents < 0.5 || asFromCents >= 50000)) {
+    return asDollars;
+  }
+
+  if (hint != null && hint >= 0.5 && Number.isFinite(hint)) {
+    const errD = asDollars != null ? Math.abs(asDollars - hint) : Number.POSITIVE_INFINITY;
+    const errC =
+      asFromCents != null ? Math.abs(asFromCents - hint) : Number.POSITIVE_INFINITY;
+    const scale = Math.max(hint, 1);
+    if (errD <= errC && errD / scale <= 0.4) return asDollars!;
+    if (errC < errD && errC / scale <= 0.4) return asFromCents!;
+    if (errD <= errC) return asDollars ?? asFromCents!;
+    return asFromCents ?? asDollars!;
+  }
+
+  if (n >= 1000) {
+    return asFromCents != null && asFromCents < 50000 ? asFromCents : asDollars;
+  }
+  // 100–999 without hint: $110 / $135 are usually whole dollars; $9.99 is usually 999 (cents).
+  if (n >= 200) {
+    return asFromCents != null ? asFromCents : asDollars;
+  }
+  return asDollars != null ? asDollars : asFromCents;
+}
+
+function extractPriceFromHtml(
+  html: string,
+  integerHint?: number | null
+): number | null {
   const metaPatterns = [
     /property=["']product:price:amount["'][^>]*content=["']([0-9]+(?:\.[0-9]+)?)["']/i,
     /name=["']price["'][^>]*content=["']([0-9]+(?:\.[0-9]+)?)["']/i,
@@ -736,6 +777,24 @@ function extractPriceFromHtml(html: string): number | null {
   const fromShopifyCents = extractShopifyCentsPricesFromHtml(html);
   if (fromShopifyCents != null) return fromShopifyCents;
 
+  const jsonLdBlocksEarly =
+    html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ||
+    [];
+  for (const block of jsonLdBlocksEarly) {
+    const content = block
+      .replace(/^<script[^>]*>/i, "")
+      .replace(/<\/script>$/i, "")
+      .trim();
+    if (!content) continue;
+    try {
+      const parsed = JSON.parse(content);
+      const fromLd = extractPriceFromJsonLdObject(parsed);
+      if (fromLd != null) return fromLd;
+    } catch {
+      // Ignore malformed JSON-LD block
+    }
+  }
+
   // Generic JSON patterns often found in script tags or data attributes
   const jsonPricePatterns = [
     /"price"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi,
@@ -748,11 +807,8 @@ function extractPriceFromHtml(html: string): number | null {
       if (!raw) continue;
       if (!raw.includes(".") && /^\d+$/.test(raw)) {
         const n = Number(raw);
-        if (n >= 100 && n <= 99999999) {
-          const d = n / 100;
-          if (d >= 0.5 && d < 50000) return d;
-        }
-        if (n > 0 && n < 50000) return n;
+        const resolved = interpretBareIntegerPriceToken(n, integerHint ?? null);
+        if (resolved != null && resolved > 0 && resolved < 50000) return resolved;
       } else {
         const p = parsePositivePrice(raw);
         if (p != null && p > 0 && p < 500000) return p;
@@ -768,22 +824,6 @@ function extractPriceFromHtml(html: string): number | null {
     if (m?.[1]) {
       const parsed = parsePositivePrice(m[1]);
       if (parsed != null) return parsed;
-    }
-  }
-
-  const jsonLdBlocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
-  for (const block of jsonLdBlocks) {
-    const content = block
-      .replace(/^<script[^>]*>/i, "")
-      .replace(/<\/script>$/i, "")
-      .trim();
-    if (!content) continue;
-    try {
-      const parsed = JSON.parse(content);
-      const fromLd = extractPriceFromJsonLdObject(parsed);
-      if (fromLd != null) return fromLd;
-    } catch {
-      // Ignore malformed JSON-LD block
     }
   }
 
@@ -1138,12 +1178,13 @@ async function fetchHtmlForProductUrl(url: string): Promise<string | null> {
 }
 
 async function fetchProductSnapshotFromUrl(
-  url: string
+  url: string,
+  integerHint?: number | null
 ): Promise<{ price: number | null; inStock: boolean | null }> {
   const html = await fetchHtmlForProductUrl(url);
   if (!html) return { price: null, inStock: null };
   return {
-    price: extractPriceFromHtml(html),
+    price: extractPriceFromHtml(html, integerHint),
     inStock: extractStockFromHtml(html),
   };
 }
@@ -1176,7 +1217,10 @@ async function runPriceCheckCycle(): Promise<void> {
           : null;
 
       if (!productUrl) continue;
-      const snapshot = await fetchProductSnapshotFromUrl(productUrl);
+      const snapshot = await fetchProductSnapshotFromUrl(
+        productUrl,
+        previousPrice > 0 ? previousPrice : null
+      );
       const latestPrice = snapshot.price;
       const latestInStock = snapshot.inStock;
 
@@ -3111,7 +3155,11 @@ app.patch(
             message: "This item has no product URL; add a link before refreshing price.",
           });
         }
-        const snapshot = await fetchProductSnapshotFromUrl(url);
+        const prevList = Number(ownerCheck.rows[0].current_price || 0);
+        const snapshot = await fetchProductSnapshotFromUrl(
+          url,
+          prevList > 0 ? prevList : null
+        );
         if (snapshot.price == null || !(snapshot.price > 0)) {
           return res.status(422).json({
             message:

@@ -12,10 +12,17 @@
         margin: 0;
         overflow: hidden;
       }
+      /* Firefox toolbar popup: 100vh = full browser window and breaks popup sizing (blank / won't open).
+         Chrome/Edge side panel still fills the panel with height: 100% + flex. */
+      html {
+        min-width: 360px;
+        min-height: 480px;
+      }
       body {
         display: flex;
         font-family: system-ui, -apple-system, sans-serif;
         min-height: 100%;
+        min-width: 360px;
         background: #f8fafc;
         color: #1e293b;
       }
@@ -30,7 +37,8 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
-        height: 100vh;
+        min-height: 0;
+        height: 100%;
       }
       
       /* Tabs */
