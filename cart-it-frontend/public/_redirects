@@ -1,0 +1,2 @@
+# Serve the extension install document at the clean URL (Cloudflare Pages, Netlify, etc.)
+/extension-install /extension-install.html 200

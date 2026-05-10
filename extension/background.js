@@ -83,6 +83,9 @@ async function readTokenFromTab(tabId) {
 }
 
 async function syncTokenFromCartItTabs() {
+  const { manualAuth } = await chrome.storage.local.get(["manualAuth"]);
+  if (manualAuth === "signed-out") return false;
+
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
     if (!tab.id || !tab.url) continue;
@@ -111,18 +114,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const token = normalizeToken(message.token);
     // Empty pushes are common (other tabs, timing); never wipe a valid stored JWT.
     if (!isLikelyJwt(token)) return false;
-    const payload = { jwt: token };
-    if (_sender?.url) {
-      try {
-        const u = new URL(_sender.url);
-        if (isCartItHost(u.hostname)) {
-          payload.jwt_origin = u.origin;
+    chrome.storage.local.get(["manualAuth"], (r) => {
+      void chrome.runtime.lastError;
+      if (r?.manualAuth === "signed-out") return;
+      const payload = { jwt: token };
+      if (_sender?.url) {
+        try {
+          const u = new URL(_sender.url);
+          if (isCartItHost(u.hostname)) {
+            payload.jwt_origin = u.origin;
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
-    }
-    chrome.storage.local.set(payload);
+      chrome.storage.local.set(payload);
+    });
     return false;
   }
   if (message?.type === "REQUEST_TOKEN_SYNC") {

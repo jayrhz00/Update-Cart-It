@@ -63,6 +63,25 @@
   .section-subtitle {
     @apply mb-14 text-center text-slate-600;
   }
+
+  .manual-install-section .section-subtitle.manual-install-subtitle {
+    @apply mb-8 max-w-2xl mx-auto;
+  }
+  .manual-install-inner {
+    @apply mx-auto max-w-2xl text-left;
+  }
+  .manual-install-steps {
+    @apply list-decimal space-y-3 pl-5 text-slate-700 marker:font-semibold;
+  }
+  .manual-install-code {
+    @apply rounded bg-slate-100 px-1.5 py-0.5 text-sm text-slate-800;
+  }
+  .manual-install-cta {
+    @apply mt-10 flex justify-center;
+  }
+  .download-btn--outline {
+    @apply rounded-lg border-2 border-slate-800/20 bg-white px-8 py-2.5 font-semibold text-slate-900 shadow-sm transition hover:border-slate-800/35 hover:bg-slate-50;
+  }
   .steps-grid {
     @apply mx-auto grid max-w-5xl gap-8 text-left md:grid-cols-3 md:gap-10;
   }

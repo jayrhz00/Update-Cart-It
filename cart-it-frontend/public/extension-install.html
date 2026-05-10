@@ -161,6 +161,69 @@
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
+      .manual-steps {
+        margin: 0 0 22px;
+        padding: 16px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(251, 113, 133, 0.35);
+        text-align: left;
+      }
+      .manual-steps-title {
+        margin: 0 0 8px;
+        font-size: 1rem;
+        font-weight: 800;
+        color: var(--ink);
+      }
+      .manual-steps-lead {
+        margin: 0 0 12px;
+        font-size: 0.84rem;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .manual-steps-list {
+        margin: 0;
+        padding-left: 1.2rem;
+        font-size: 0.84rem;
+        color: #44403c;
+        line-height: 1.55;
+      }
+      .manual-steps-list li {
+        margin-bottom: 8px;
+      }
+      .manual-steps-list li:last-child {
+        margin-bottom: 0;
+      }
+      .pin-block {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(251, 113, 133, 0.35);
+      }
+      .pin-title {
+        margin: 0 0 8px;
+        font-size: 0.92rem;
+        font-weight: 800;
+        color: var(--ink);
+      }
+      .pin-lead {
+        margin: 0 0 10px;
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .pin-list {
+        margin: 0;
+        padding-left: 1.1rem;
+        font-size: 0.84rem;
+        color: #44403c;
+        line-height: 1.55;
+      }
+      .pin-list li {
+        margin-bottom: 8px;
+      }
+      .pin-list li:last-child {
+        margin-bottom: 0;
+      }
     </style>
   </head>
   <body>
@@ -172,6 +235,57 @@
           Install in one click from your browser store when available. The Cart-It icon appears
           <strong>next to the address bar</strong>.
         </p>
+
+        <div class="manual-steps" aria-labelledby="manual-install-heading">
+          <h2 id="manual-install-heading" class="manual-steps-title">Install manually (ZIP)</h2>
+          <p class="manual-steps-lead">
+            Use this when the store listing is still pending or your IT policy only allows unpacked extensions.
+          </p>
+          <ol class="manual-steps-list">
+            <li>
+              <strong>Download the ZIP</strong> for your browser using the large button below this box, or the matching
+              browser row under that. Those files are the latest manual-install packages from this site (Chrome/Edge
+              share the Chromium ZIP; Firefox has its own).
+            </li>
+            <li>
+              Unzip to a folder you will keep — Chrome/Edge need that folder to stay on disk.
+            </li>
+            <li>
+              Open extensions: Chrome → <code>chrome://extensions</code> · Edge → <code>edge://extensions</code> ·
+              Firefox → <code>about:debugging#/runtime/this-firefox</code> (then <strong>Load Temporary Add-on…</strong>
+              and pick the <code>manifest.json</code> inside your unzipped folder).
+            </li>
+            <li>
+              Turn on <strong>Developer mode</strong> (Chrome/Edge), then click <strong>Load unpacked</strong>.
+              In the file picker, open your unzipped folder until you see <code>manifest.json</code> in that same
+              folder (with files like <code>sidepanel.html</code>). Select that folder and click
+              <strong>Select Folder</strong>. Do not select the <code>.zip</code> file, and do not stop on a parent
+              folder that does not contain <code>manifest.json</code>.
+            </li>
+            <li>
+              <strong>Cloned the GitHub repo?</strong> Choose the <code>extension</code> folder inside the project,
+              not the project root (which has <code>cart-it-frontend</code>, <code>server</code>, etc.).
+            </li>
+          </ol>
+          <div class="pin-block" aria-labelledby="pin-toolbar-heading">
+            <h3 id="pin-toolbar-heading" class="pin-title">Pin Cart-It on your toolbar (not a bookmark)</h3>
+            <p class="pin-lead">
+              After install, add Cart-It next to the address bar so you can open the side panel in one click.
+            </p>
+            <ul class="pin-list">
+              <li>
+                <strong>Chrome or Edge:</strong> Click the <strong>Extensions</strong> icon (puzzle piece) to the
+                right of the address bar → find <strong>Cart-It</strong> → click the <strong>pin</strong> icon so the
+                Cart-It icon stays on the toolbar.
+              </li>
+              <li>
+                <strong>Firefox:</strong> Click the <strong>Extensions</strong> button on the toolbar (or open the
+                application menu → <strong>Add-ons and themes</strong>) → pin or show <strong>Cart-It</strong> so it
+                stays easy to reach.
+              </li>
+            </ul>
+          </div>
+        </div>
 
         <div id="hero-mount"></div>
         <div id="browser-mount" class="browser-grid"></div>

@@ -14,6 +14,7 @@ import ItemDetailPage from './components/item-detail-page';
 import ResetPassword from './components/reset-password';
 import ForgotPassword from './components/forgot-password';
 import PrivacyPolicy from './components/privacy-policy';
+import ExtensionInstallPage from './components/extension-install-page';
 
 function App() {
   useEffect(() => {
@@ -30,6 +31,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/extension-install" element={<ExtensionInstallPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/login" element={<Login />} />

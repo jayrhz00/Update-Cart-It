@@ -1,0 +1,259 @@
+.extension-install-page {
+  --ei-ink: #0f172a;
+  --ei-muted: #57534e;
+  --ei-accent-from: #f43f5e;
+  --ei-accent-to: #f97316;
+  --ei-card: rgba(255, 255, 255, 0.92);
+  --ei-border: rgba(251, 113, 133, 0.35);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  padding: 28px 18px 40px;
+  background: linear-gradient(160deg, #fff5f5 0%, #fff7ed 45%, #fef3c7 100%);
+  color: var(--ei-ink);
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+
+.extension-install-page *,
+.extension-install-page *::before,
+.extension-install-page *::after {
+  box-sizing: border-box;
+}
+
+.extension-install-page .ei-wrap {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.extension-install-page .ei-card {
+  background: var(--ei-card);
+  border: 1px solid var(--ei-border);
+  border-radius: 20px;
+  padding: 28px 22px 24px;
+  box-shadow: 0 12px 40px -18px rgba(244, 63, 94, 0.35);
+}
+
+.extension-install-page .ei-card h1 {
+  margin: 0 0 10px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, #e11d48, #ea580c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.extension-install-page .ei-sub {
+  margin: 0 0 22px;
+  font-size: 0.95rem;
+  color: var(--ei-muted);
+}
+
+.extension-install-page .ei-hero-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(90deg, var(--ei-accent-from), var(--ei-accent-to));
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.05rem;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
+}
+
+.extension-install-page .ei-hero-btn:hover {
+  filter: brightness(1.05);
+}
+
+.extension-install-page .ei-hero-btn.ei-secondary {
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ei-ink);
+  border: 1px solid rgba(251, 113, 133, 0.4);
+  box-shadow: none;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.extension-install-page .ei-footnote {
+  margin: 18px 0 0;
+  font-size: 0.8rem;
+  color: #78716c;
+}
+
+.extension-install-page details {
+  margin-top: 20px;
+  font-size: 0.82rem;
+  color: var(--ei-muted);
+}
+
+.extension-install-page summary {
+  cursor: pointer;
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.extension-install-page details code {
+  background: rgba(254, 215, 170, 0.5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.extension-install-page .ei-browser-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.extension-install-page .ei-browser-row {
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.extension-install-page .ei-browser-row.ei-top-pick {
+  border-color: rgba(234, 88, 12, 0.5);
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.12);
+}
+
+.extension-install-page .ei-browser-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.extension-install-page .ei-browser-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.extension-install-page .ei-status-pill {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.extension-install-page .ei-status-approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.extension-install-page .ei-status-pending {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.extension-install-page .ei-mini-note {
+  font-size: 0.75rem;
+  color: #78716c;
+  margin-top: 6px;
+}
+
+.extension-install-page .ei-tiny {
+  font-size: 0.78rem;
+  color: #57534e;
+  margin: 0 0 8px;
+}
+
+.extension-install-page .ei-zip-or {
+  text-align: center;
+  margin: 12px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.extension-install-page .ei-manual-steps {
+  margin: 0 0 22px;
+  padding: 16px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  text-align: left;
+}
+
+.extension-install-page .ei-manual-steps-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ei-ink);
+}
+
+.extension-install-page .ei-manual-steps-lead {
+  margin: 0 0 12px;
+  font-size: 0.84rem;
+  color: var(--ei-muted);
+  line-height: 1.45;
+}
+
+.extension-install-page .ei-manual-steps-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.84rem;
+  color: #44403c;
+  line-height: 1.55;
+}
+
+.extension-install-page .ei-manual-steps-list li {
+  margin-bottom: 8px;
+}
+
+.extension-install-page .ei-manual-steps-list li:last-child {
+  margin-bottom: 0;
+}
+
+.extension-install-page .ei-pin-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(251, 113, 133, 0.35);
+}
+
+.extension-install-page .ei-pin-title {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ei-ink);
+}
+
+.extension-install-page .ei-pin-lead {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--ei-muted);
+  line-height: 1.45;
+}
+
+.extension-install-page .ei-pin-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.84rem;
+  color: #44403c;
+  line-height: 1.55;
+}
+
+.extension-install-page .ei-pin-list li {
+  margin-bottom: 8px;
+}
+
+.extension-install-page .ei-pin-list li:last-child {
+  margin-bottom: 0;
+}
+
+.extension-install-page .ei-hero-slot {
+  margin-bottom: 0;
+}

@@ -2,32 +2,9 @@ const DEFAULT_API =
   typeof CART_IT_CONFIG !== "undefined" && CART_IT_CONFIG.defaultApiBase
     ? CART_IT_CONFIG.defaultApiBase
     : "https://cart-it.onrender.com";
-const FALLBACK_LOCAL_API =
-  typeof CART_IT_CONFIG !== "undefined" && CART_IT_CONFIG.fallbackLocalApi
-    ? CART_IT_CONFIG.fallbackLocalApi
-    : "http://127.0.0.1:5001";
-
-/** Drop BNPL/shipping-style amounts when a larger cluster of prices exists (Fashion Nova–style pages). */
-function pickRepresentativePrice(arr) {
-  const vals = [...new Set(arr.filter((n) => typeof n === "number" && n > 0 && n < 1_000_000))].sort(
-    (a, b) => a - b
-  );
-  if (!vals.length) return null;
-  if (vals.length === 1) return vals[0];
-  const lo = vals[0];
-  const hi = vals[vals.length - 1];
-  if (hi / lo < 3) return lo;
-  const med = vals[Math.floor(vals.length / 2)];
-  const filtered = vals.filter((p) => !(p < med * 0.35 && p < 20));
-  return filtered.length ? Math.min(...filtered) : lo;
-}
 
 /** Runs in the product tab — name, price, image, store from the page. */
 function getPageData() {
-  const textFromScript = (selector) => {
-    const el = document.querySelector(selector);
-    return el?.textContent || "";
-  };
   const ogImageRaw =
     document.querySelector('meta[property="og:image"]')?.content ||
     document.querySelector('meta[name="twitter:image"]')?.content ||
@@ -59,6 +36,86 @@ function getPageData() {
   const isAmazon = /\.amazon\./i.test(location.hostname);
   const hostNorm = (location.hostname || "").replace(/^www\./, "").toLowerCase();
   const isShein = hostNorm.includes("shein");
+  const isFashionNova = hostNorm.endsWith("fashionnova.com") || hostNorm.includes("fashionnova.com");
+  const isTarget = hostNorm.endsWith("target.com") || hostNorm.includes("target.com");
+
+  const TEXT_NODE = 3;
+  const ELEMENT_NODE = 1;
+  const FRAG_NODE = 11;
+
+  /** Shein / modern PDPs put price + gallery inside open shadow roots — light DOM text is empty. */
+  const collectPageTextDeep = (maxLen) => {
+    const buf = [];
+    let curLen = 0;
+    const collect = (node) => {
+      if (!node || curLen > maxLen) return;
+      if (node.nodeType === TEXT_NODE) {
+        const t = node.textContent;
+        if (t && /\S/.test(t)) {
+          buf.push(t);
+          curLen += t.length;
+        }
+        return;
+      }
+      if (node.nodeType === ELEMENT_NODE) {
+        if (node.shadowRoot) collect(node.shadowRoot);
+        for (let c = node.firstChild; c; c = c.nextSibling) collect(c);
+      } else if (node.nodeType === FRAG_NODE) {
+        for (let c = node.firstChild; c; c = c.nextSibling) collect(c);
+      }
+    };
+    const start = document.body || document.documentElement;
+    if (start) collect(start);
+    return buf
+      .join(" ")
+      .replace(/\u00a0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, maxLen);
+  };
+
+  const memoizedRoots = [];
+  const getAllRoots = () => {
+    if (memoizedRoots.length) return memoizedRoots;
+    memoizedRoots.push(document);
+    try {
+      const stack = [...document.querySelectorAll("*")];
+      while (stack.length) {
+        const el = stack.pop();
+        if (el && el.shadowRoot) {
+          memoizedRoots.push(el.shadowRoot);
+          const shadowEls = el.shadowRoot.querySelectorAll("*");
+          for (let i = 0; i < shadowEls.length; i++) stack.push(shadowEls[i]);
+        }
+      }
+    } catch (_) {}
+    return memoizedRoots;
+  };
+
+  const querySelectorAllDeep = (sel) => {
+    const out = [];
+    for (const root of getAllRoots()) {
+      try {
+        root.querySelectorAll(sel).forEach((el) => out.push(el));
+      } catch (_) {}
+    }
+    return out;
+  };
+
+  const absolutizeMediaUrl = (u) => {
+    if (!u) return "";
+    const s = String(u).trim();
+    if (!s) return "";
+    if (s.startsWith("//")) return `https:${s}`;
+    if (s.startsWith("/") && !s.startsWith("//")) {
+      try {
+        return new URL(s, location.origin).href;
+      } catch {
+        return s;
+      }
+    }
+    return s;
+  };
 
   const getAmazonPrice = () => {
     const selectors = [
@@ -109,13 +166,46 @@ function getPageData() {
 
   const SAVINGS_BEFORE = /(?:save|saving|savings|off|discount|reward|coupon|bonus)\s*[:\-]?\s*\$?\s*$/i;
   const SAVINGS_AFTER = /^\s*(?:off|in\s+savings?|discount|saved|coupon)\b/i;
-  const looksLikeSavingsAmount = (fullText, matchIndex, matchLength) => {
-    const before = fullText.slice(Math.max(0, matchIndex - 32), matchIndex);
-    if (SAVINGS_BEFORE.test(before)) return true;
+  
+  const BAD_PRICE_BEFORE = /(?:shipping|postage|delivery|interest-free|payments?\s*of|pay\s*later|afterpay|klarna|affirm|zip|quadpay|split\s*into|only|over|above|spend|orders|min|minimum|standard|expedited|express|saver)\s*[:\-]?\s*\$?\s*$/i;
+  const BAD_PRICE_AFTER = /^\s*(?:shipping|delivery|interest-free|payments?|installments?|per\s+month|mo\b|for\s+free|more\s+to|off|discount|each|unit)/i;
+
+  const looksLikeBadPrice = (fullText, matchIndex, matchLength) => {
+    const before = fullText.slice(Math.max(0, matchIndex - 60), matchIndex);
+    if (SAVINGS_BEFORE.test(before) || BAD_PRICE_BEFORE.test(before)) return true;
     const afterStart = matchIndex + matchLength;
-    const after = fullText.slice(afterStart, afterStart + 24);
-    if (SAVINGS_AFTER.test(after)) return true;
+    const after = fullText.slice(afterStart, afterStart + 60);
+    if (SAVINGS_AFTER.test(after) || BAD_PRICE_AFTER.test(after)) return true;
     return false;
+  };
+
+  /** Drop BNPL/shipping-style amounts when a larger cluster of prices exists (Fashion Nova–style pages). */
+  const pickRepresentativePrice = (arr) => {
+    const vals = [...new Set(arr.filter((n) => typeof n === "number" && n > 0 && n < 1_000_000))].sort(
+      (a, b) => a - b
+    );
+    if (!vals.length) return null;
+    if (vals.length === 1) return vals[0];
+    const lo = vals[0];
+    const hi = vals[vals.length - 1];
+    
+    // If we have a huge gap (e.g. 16.00 vs 30.00),
+    // we only pick high if the low one looks like an installment (exactly 1/4)
+    // or is extremely low (< $6) while the high one is reasonable.
+    // Also check if lo is a common shipping amount (like 4.99, 6.99, 9.99, 15.00, 16.00, 20.00).
+    const commonShipping = [4.99, 5.00, 5.99, 6.99, 7.00, 7.99, 8.99, 9.00, 9.99, 12.00, 15.00, 16.00, 19.99, 20.00, 25.00];
+    const looksLikeShipping = commonShipping.some(s => Math.abs(s - lo) < 0.05);
+
+    if (hi / lo > 1.4 && lo < 45) {
+      if (Math.abs(hi / 4 - lo) < 1.6) return hi;
+      if (lo < 6.5 && hi < 500) return hi;
+      if (looksLikeShipping && hi / lo > 1.6) return hi;
+    }
+    
+    if (hi / lo < 3) return lo;
+    const med = vals[Math.floor(vals.length / 2)];
+    const filtered = vals.filter((p) => !(p < med * 0.35 && p < 20));
+    return filtered.length ? Math.min(...filtered) : lo;
   };
 
   const pickNearCartPriceFromText = (text) => {
@@ -123,7 +213,7 @@ function getPageData() {
     const re = /(?:US\$|\$)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
     let m;
     while ((m = re.exec(text)) !== null) {
-      if (looksLikeSavingsAmount(text, m.index, m[0].length)) continue;
+      if (looksLikeBadPrice(text, m.index, m[0].length)) continue;
       const p = parsePriceText(m[1]);
       if (p != null && p >= 0.01 && p < 1_000_000) prices.push(p);
     }
@@ -131,28 +221,42 @@ function getPageData() {
     return pickRepresentativePrice(prices);
   };
 
+  const climbDomIncludingShadow = (start, maxDepth, visitor) => {
+    let node = start;
+    for (let depth = 0; depth < maxDepth && node; depth++) {
+      visitor(node);
+      const p = node.parentNode;
+      if (!p) {
+        node = null;
+      } else if (p.nodeType === ELEMENT_NODE) {
+        node = p;
+      } else if (p.nodeType === FRAG_NODE && p.host) {
+        node = p.host;
+      } else {
+        node = null;
+      }
+    }
+  };
+
   const priceNearPrimaryAddToCart = () => {
-    const candidates = Array.from(
-      document.querySelectorAll(
-        'button[name="add"], button[id*="AddToCart"], button[class*="add-to-cart"], [data-add-to-cart], .cider-add-to-cart-btn, button[type="button"], [class*="add-cart"], [class*="addToCart"]'
-      )
+    const candidates = querySelectorAllDeep(
+      'button[name="add"], button[id*="AddToCart"], button[class*="add-to-cart"], [data-add-to-cart], .cider-add-to-cart-btn, button[type="button"], [class*="add-cart"], [class*="addToCart"], [class*="product-form__submit"], button[type="submit"]'
     );
     const btn = candidates.find((b) =>
-      /add\s*to\s*cart|cart|bag|checkout|buy\s*now/i.test(b.textContent || "")
+      /add\s*to\s*cart|add\s*to\s*bag|cart|bag|checkout|buy\s*now/i.test(b.textContent || "")
     );
     if (!btn) return null;
     const collected = [];
-    let node = btn;
-    for (let depth = 0; depth < 12 && node; depth++, node = node.parentElement) {
-      const text = (node.innerText || "").slice(0, 4000);
+    climbDomIncludingShadow(btn, 14, (node) => {
+      const text = (node.innerText || node.textContent || "").slice(0, 4000);
       const re = /(?:US\$|\$)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
       let m;
       while ((m = re.exec(text)) !== null) {
-        if (looksLikeSavingsAmount(text, m.index, m[0].length)) continue;
+        if (looksLikeBadPrice(text, m.index, m[0].length)) continue;
         const p = parsePriceText(m[1]);
         if (p != null && p >= 0.01 && p < 1_000_000) collected.push(p);
       }
-    }
+    });
     return collected.length ? pickRepresentativePrice(collected) : null;
   };
 
@@ -182,68 +286,332 @@ function getPageData() {
     return cands.length ? pickRepresentativePrice(cands) : null;
   };
 
+  const getMetaTagPrice = () => {
+    const metas = [
+      document.querySelector('meta[property="product:price:amount"]'),
+      document.querySelector('meta[property="og:price:amount"]'),
+      document.querySelector('meta[itemprop="price"][content]'),
+    ].filter(Boolean);
+    const cands = [];
+    for (const node of metas) {
+      const raw = node.getAttribute("content") || "";
+      const p = parsePriceText(raw);
+      if (p != null && p > 0) cands.push(p);
+    }
+    const vis = document.querySelector('[itemprop="price"]');
+    if (vis) {
+      const raw = vis.getAttribute("content") || vis.textContent || "";
+      const p = parsePriceText(raw);
+      if (p != null && p > 0) cands.push(p);
+    }
+    return cands.length ? Math.min(...cands) : null;
+  };
+
+  /**
+   * Shopify / Fashion Nova: `price` in ProductJson is usually **cents** (3149 → $31.49).
+   * Parsing cents as dollars was the main reason FN prices failed.
+   */
+  const extractShopifyStyleJsonPrices = () => {
+    const cands = [];
+    const addRaw = (raw, priority = 0) => {
+      const s = String(raw ?? "").trim();
+      if (!s) return;
+      if (!s.includes(".") && /^\d+$/.test(s)) {
+        const n = Number(s);
+        if (n >= 100 && n <= 99999999) {
+          const dollars = n / 100;
+          if (dollars >= 0.5 && dollars < 50000) {
+            cands.push({ val: dollars, prio: priority });
+            return;
+          }
+        }
+        if (n > 0 && n < 50000) {
+          cands.push({ val: n, prio: priority });
+          return;
+        }
+        return;
+      }
+      const asDec = parsePriceText(s);
+      if (asDec != null && asDec > 0 && asDec < 500000) cands.push({ val: asDec, prio: priority });
+    };
+    const consumeProductBlob = (obj) => {
+      if (!obj || typeof obj !== "object") return;
+      if (Array.isArray(obj)) {
+        for (const x of obj) consumeProductBlob(x);
+        return;
+      }
+      // Prioritize sale keys
+      for (const k of ["price", "price_min", "sale_price", "salePrice"]) {
+        if (obj[k] != null && obj[k] !== "") addRaw(obj[k], 100);
+      }
+      for (const k of ["price_max", "compare_at_price", "compareAtPrice"]) {
+        if (obj[k] != null && obj[k] !== "") addRaw(obj[k], -50);
+      }
+      if (Array.isArray(obj.variants)) {
+        for (const v of obj.variants) consumeProductBlob(v);
+      }
+      if (obj.product && typeof obj.product === "object") consumeProductBlob(obj.product);
+    };
+    const tryParseScriptText = (t) => {
+      if (!t || t.length < 8 || t.length > 600000) return;
+      if (!/product|variants|price|shopify|ProductJson/i.test(t)) return;
+      try {
+        const data = JSON.parse(t);
+        consumeProductBlob(data);
+      } catch (_) {
+        for (const mm of t.matchAll(
+          /"(?:price|sale_price|salePrice|price_min)"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi
+        )) {
+          addRaw(mm[1], 80);
+        }
+        for (const mm of t.matchAll(
+          /"(?:compare_at_price|compareAtPrice|price_max)"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi
+        )) {
+          addRaw(mm[1], -20);
+        }
+      }
+    };
+
+    document.querySelectorAll('script[type="application/json"]').forEach((node) => {
+      tryParseScriptText(node.textContent || "");
+    });
+    document
+      .querySelectorAll(
+        'script[id*="ProductJson"], script[id*="product-json"], script[data-product-json]'
+      )
+      .forEach((node) => {
+        tryParseScriptText(node.textContent || "");
+      });
+    
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.prio - a.prio || a.val - b.val);
+    return cands[0].val;
+  };
+
+  /**
+   * When ProductJson fails JSON.parse (or lives in a non-standard script), regex-scan raw text.
+   * Helps Fashion Nova when the PDP UI is behind closed shadow DOM but boot data is still in page HTML.
+   */
+  const extractShopifyPricesFromRawScripts = () => {
+    const cands = [];
+    const addCents = (n, priority = 0) => {
+      if (typeof n !== "number" || !Number.isFinite(n)) return;
+      if (n >= 100 && n <= 99999999) {
+        const d = n / 100;
+        if (d >= 0.5 && d < 50000) cands.push({ val: d, prio: priority });
+        return;
+      }
+      if (n > 0 && n < 50000) cands.push({ val: n, prio: priority });
+    };
+    document.querySelectorAll("script:not([src])").forEach((node) => {
+      const t = node.textContent || "";
+      if (t.length < 60 || t.length > 2_500_000) return;
+      if (!/shopify|cdn\.shop|ProductJson|variants|"price"|productId|featured_image/i.test(t)) return;
+      
+      for (const mm of t.matchAll(/"(?:price|price_min|sale_price)"\s*:\s*(\d{3,8})\b/g)) {
+        addCents(Number(mm[1]), 100);
+      }
+      for (const mm of t.matchAll(/"(?:compare_at_price|compareAtPrice)"\s*:\s*(\d{3,8})\b/g)) {
+        addCents(Number(mm[1]), -50);
+      }
+      // Also catch decimal strings in scripts
+      for (const mm of t.matchAll(/"(?:price|price_min|sale_price)"\s*:\s*"(\d+\.\d{2})"/g)) {
+        const p = parseFloat(mm[1]);
+        if (p > 0) cands.push({ val: p, prio: 110 });
+      }
+    });
+    
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.prio - a.prio || a.val - b.val);
+    return cands[0].val;
+  };
+
   const getSheinPrice = () => {
     const cands = [];
-    const add = (raw) => {
+    const add = (raw, contextText = "", priority = 0) => {
       const p = parsePriceText(String(raw).trim());
-      if (p != null && p >= 0.5 && p < 50000) cands.push(p);
+      if (p != null && p >= 0.1 && p < 50000) {
+        // Ultimate exclusion for savings badges/conditional prices/shipping thresholds
+        if (/(?:save|saving|off|discount|buy\s+\d+|more\s+to|coupon|points|limit|exclusive|reduced|extra|percent|estimated|spend|shipping|order|threshold|minimum|above|over)/i.test(contextText)) return;
+        cands.push({ val: p, prio: priority });
+      }
     };
     const scope =
       document.querySelector("#productMainColumnId, #goodsDetailAnchor, [id*='goodsDetail'], main") ||
       document.body;
-    const chunk = (scope.innerText || "").replace(/\s+/g, " ").slice(0, 16000);
-    const usdRe = /(?:US\$|\$)\s*(\d{1,5}\.\d{2})\b/g;
+    
+    // 1. High-confidence Shein sale price classes - Highest priority
+    querySelectorAllDeep('.price-info__price, .product-intro__price-sale, .sale-price, [class*="price-sale"], [class*="PriceSale"], .product-intro__price-actual, .product-intro__price-now').forEach(el => {
+      const t = el.textContent || "";
+      const cls = (el.className || "").toLowerCase();
+      let prio = 200;
+      // Demote if it's explicitly retail/original
+      if (/(?:retail|original|was|del-price)/i.test(cls + t)) prio = -100;
+      if (/\d/.test(t)) add(t, "ultimate-sale-priority", prio);
+    });
+
+    const light = (scope.innerText || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+    const deep = collectPageTextDeep(30000);
+    const chunk = `${light} ${deep}`.replace(/\s+/g, " ").trim().slice(0, 30000);
+    
+    const usdRe = /(?:US\$|\$|USD)\s*(\d{1,5}\.\d{2})\b/gi;
     let m;
     while ((m = usdRe.exec(chunk)) !== null) {
-      add(m[1]);
+      const before = chunk.slice(Math.max(0, m.index - 60), m.index);
+      const after = chunk.slice(m.index + m[0].length, m.index + m[0].length + 60);
+      let prio = 10;
+      const combined = (before + after).toLowerCase();
+      if (/(?:sale|current|now|only|actual|price\s*:)/i.test(combined)) prio = 70;
+      if (/(?:retail|msrp|original|was|previous|compare)/i.test(combined)) prio = -80;
+      add(m[1], combined, prio);
     }
-    document.querySelectorAll('[class*="price"], [class*="Price"]').forEach((el) => {
-      const t = (el.textContent || "").replace(/\s+/g, " ");
-      if (!/(?:US\$|\$)\s*\d/.test(t)) return;
-      const mm = t.match(/(?:US\$|\$)\s*(\d{1,5}\.\d{2})/);
-      if (mm) add(mm[1]);
-    });
-    if (!cands.length) {
-      const salePair = chunk.match(
-        /\b(\d{1,3}\.\d{2})\b[\s\S]{0,120}(?:US\$|\$)\s*(\d{1,3}\.\d{2})\b/
-      );
-      if (salePair) {
-        add(salePair[1]);
-        add(salePair[2]);
-      }
-    }
+
     if (!cands.length) {
       document.querySelectorAll("script:not([src])").forEach((s) => {
         const t = s.textContent || "";
-        if (t.length < 80 || t.length > 900000) return;
+        if (t.length < 80 || t.length > 1500000) return;
         if (!/salePrice|retailPrice|"price"|goods_id|productInfo/i.test(t)) return;
         for (const mm of t.matchAll(
-          /"(?:sale_price|salePrice|retail_price|retailPrice|unit_discount_price|price)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/gi
+          /"(?:sale_price|salePrice|mainSalePrice|special_price|sku_sale_price|productPrice)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/gi
         )) {
-          add(mm[1]);
+          add(mm[1], "json-sale-priority", 150);
         }
       });
     }
+
     if (!cands.length) return null;
-    return pickRepresentativePrice([...new Set(cands)]);
+    
+    // Grab the winner with the highest confidence. 
+    // If multiple have same priority, pick the SMALLEST (sale price usually wins over retail/bundle).
+    const topPrio = cands[0].prio;
+    const winners = cands.filter(c => c.prio === topPrio).map(c => c.val);
+    if (topPrio >= 70) return Math.min(...winners);
+    
+    const vals = [...new Set(cands.map(c => c.val))];
+    return pickRepresentativePrice(vals);
+  };
+
+  const resolveImgSrc = (img) => {
+    const pick = (s) => (s && String(s).trim()) || "";
+    let src = pick(
+      img.getAttribute("data-original-src") ||
+      img.getAttribute("data-zoom-src") ||
+      img.getAttribute("data-src-webp") ||
+      img.currentSrc ||
+      img.getAttribute("src") ||
+      img.src ||
+      img.getAttribute("data-src") ||
+      img.getAttribute("data-original") ||
+      img.getAttribute("data-lazy-src") ||
+      img.getAttribute("data-before-crop-src")
+    );
+    
+    // Handle srcset
+    if (!src || src.startsWith("data:")) {
+      const srcset = img.getAttribute("srcset");
+      if (srcset) {
+        const parts = srcset.split(",").map(p => p.trim().split(/\s+/)[0]);
+        src = parts[parts.length - 1]; 
+      }
+    }
+    return src;
   };
 
   const pickSheinProductImage = () => {
-    const imgs = Array.from(document.querySelectorAll('img[src*="ltwebstatic.com"], img[src*="shein"]'));
+    const allImgs = querySelectorAllDeep("img");
+    
+    // 1. Priority: Images inside high-confidence gallery containers (searching through shadow roots)
+    const gallerySelectors = [
+      '.product-intro__main-img', '.main-image-container', '.js-main-image', 
+      '.product-intro__img-container', '.c-video-container', '.gallery-slide',
+      '.product-intro__gallery', '.she-image-container', '.image-box'
+    ];
+    
+    let best = "";
+    let bestScore = -1e9;
+
+    for (const img of allImgs) {
+      const src = resolveImgSrc(img);
+      if (!src || src.startsWith("data:")) continue;
+      if (/logo|icon|sprite|badge|banner|avatar|emoji|payment|trustpilot|footer|ad-item|prop-img|share-icon|loading|video/i.test(src)) continue;
+      
+      let score = 0;
+      
+      // Check ancestry for gallery classes
+      let inGallery = false;
+      climbDomIncludingShadow(img, 10, (node) => {
+        if (node.className && typeof node.className === 'string') {
+          if (gallerySelectors.some(sel => node.classList.contains(sel.slice(1)))) {
+            inGallery = true;
+          }
+        }
+      });
+      
+      if (inGallery) score += 1000000;
+
+      const dim = src.match(/_(\d{2,4})x(\d{2,4})/);
+      if (dim) score += parseInt(dim[1], 10) * parseInt(dim[2], 10);
+      else score += 25000;
+
+      if (/_goods_img|origin|imresize|main-img|primary-img|pdp-main|goods_id/i.test(src)) score += 900000;
+      if (/\/large\/|\b850x|\b900x|\b1000x|\b1200x|\b1500x/i.test(src)) score += 700000;
+      
+      if (/list_?0|thumb|thumbnail|small|mini|_s\.|_xs\.|\b150x|\b220x|100x100/i.test(src)) score -= 1500000;
+      
+      const alt = (img.getAttribute("alt") || "").toLowerCase();
+      if (alt.length > 10 && !/shein\.com|women|curve|home|close|zoom|size|click/i.test(alt)) score += 60000;
+      
+      if (score > bestScore) {
+        bestScore = score;
+        best = src;
+      }
+    }
+
+    // 2. Fallback: Search for background images in gallery containers
+    if (!best || bestScore < 500000) {
+      for (const sel of gallerySelectors) {
+        const els = querySelectorAllDeep(sel);
+        for (const el of els) {
+          const bg = window.getComputedStyle(el).backgroundImage;
+          if (bg && bg !== 'none' && bg.includes('http')) {
+            const m = bg.match(/url\(["']?([^"']+)["']?\)/);
+            if (m?.[1]) return absolutizeMediaUrl(m[1]);
+          }
+        }
+      }
+    }
+
+    return best;
+  };
+
+  /** Fashion Nova / Shopify: real photos are often on cdn.shopify.com; og:image may be a grey logo tile. */
+  const pickShopifyStyleProductImage = () => {
+    const imgs = querySelectorAllDeep("img").filter((img) => {
+      const src = resolveImgSrc(img).toLowerCase();
+      if (!src || src.startsWith("data:")) return false;
+      if (
+        /logo|icon|sprite|placeholder|1x1|1\.gif|pixel|spacer|badge|payment|navbar|header-nav|footer/i.test(
+          src
+        )
+      ) {
+        return false;
+      }
+      return /cdn\.shopify\.com|\/cdn\/shop\/|fashionnova|\/products\//i.test(src);
+    });
     let best = "";
     let bestScore = -1e9;
     for (const img of imgs) {
-      const src = (img.currentSrc || img.src || "").trim();
+      const src = resolveImgSrc(img);
       if (!src || src.startsWith("data:")) continue;
-      if (/logo|icon|sprite|badge|banner|avatar|emoji|payment|trustpilot|footer/i.test(src)) continue;
+      if (/logo|placeholder|sprite|icon|footer|trust|payment/i.test(src)) continue;
       let score = 0;
-      const dim = src.match(/_(\d{2,4})x(\d{2,4})/);
+      const dim = src.match(/[_/](\d{2,4})x(\d{2,4})(?:\.|\/|\?|$)/i);
       if (dim) score += parseInt(dim[1], 10) * parseInt(dim[2], 10);
-      else score += 8000;
-      if (/list_?0|thumb|thumbnail|small|mini|_s\.|_xs\.|\b150x|\b220x/i.test(src)) score -= 400000;
-      if (/\/large\/|\b850x|\b900x|\b1000x|origin|imresize|big/i.test(src)) score += 350000;
+      else score += 6000;
+      if (/thumb|thumbnail|small|mini|50x|100x|150x|200x|_compact|_small/i.test(src)) score -= 300000;
+      if (/1024|1536|2048|_grande|_large|master|zoom|2048x|width=\d{3,4}/i.test(src)) score += 250000;
       const alt = (img.getAttribute("alt") || "").toLowerCase();
-      if (alt.length > 8 && !/shein\.com|women|curve|home|close|zoom|size/i.test(alt)) score += 12000;
+      if (alt.length > 12 && !/fashion nova|novababe|close|zoom|size chart/i.test(alt)) score += 8000;
       if (score > bestScore) {
         bestScore = score;
         best = src;
@@ -252,28 +620,391 @@ function getPageData() {
     return best;
   };
 
+  /** Pull Shopify CDN image URLs from preload + JSON blobs + srcset (works when <img> is in closed shadow). */
+  const extractShopifyMediaFromPage = () => {
+    const absolutize = (u) => {
+      if (!u) return "";
+      const s = String(u).trim();
+      if (!s) return "";
+      if (s.startsWith("//")) return `https:${s}`;
+      if (s.startsWith("/") && !s.startsWith("//")) {
+        try {
+          return new URL(s, location.origin).href;
+        } catch {
+          return s;
+        }
+      }
+      return s;
+    };
+    const scoreUrl = (u) => {
+      let sc = Math.min(u.length, 800);
+      if (/\d{3,4}x\d{3,4}/.test(u)) sc += 900;
+      if (/thumb|small|compact|50x|100x|150x|icon\b|logo|placeholder|og-image|\.svg(\?|$)/i.test(u))
+        sc -= 6000;
+      return sc;
+    };
+    let best = "";
+    let bestSc = -1e9;
+    const consider = (raw) => {
+      const a = absolutize(raw);
+      if (!a || (!/shopify\.com/i.test(a) && !/\/cdn\/shop\//i.test(a))) return;
+      if (/logo|placeholder|favicon|og-image|badge|payment|trustpilot/i.test(a)) return;
+      const sc = scoreUrl(a);
+      if (sc > bestSc) {
+        bestSc = sc;
+        best = a;
+      }
+    };
+    document.querySelectorAll('link[rel="preload"][as="image"]').forEach((l) => consider(l.getAttribute("href")));
+    document.querySelectorAll("script:not([src])").forEach((s) => {
+      const t = s.textContent || "";
+      if (t.length < 200 || !/cdn\.shopify\.com|\/cdn\/shop\//i.test(t)) return;
+      const re = /(https?:)?\/\/cdn\.shopify\.com[^"'\\\s<>)]+/gi;
+      let m;
+      while ((m = re.exec(t)) !== null) {
+        let u = m[0].replace(/\\+$/, "");
+        consider(u);
+      }
+    });
+    querySelectorAllDeep("img").forEach((img) => {
+      consider(resolveImgSrc(img));
+      const ss = img.getAttribute("srcset") || "";
+      if (ss) {
+        for (const part of ss.split(",")) {
+          const url = part.trim().split(/\s+/)[0];
+          consider(url);
+        }
+      }
+    });
+    querySelectorAllDeep("source[srcset]").forEach((src) => {
+      const ss = src.getAttribute("srcset") || "";
+      for (const part of ss.split(",")) {
+        const url = part.trim().split(/\s+/)[0];
+        consider(url);
+      }
+    });
+    return best || null;
+  };
+
+  const extractJsonLdProductImage = () => {
+    const walk = (o, depth = 0) => {
+      if (depth > 20 || !o || typeof o !== "object") return "";
+      if (typeof o.image === "string" && /^https?:\/\//i.test(o.image)) return o.image;
+      if (o.image && typeof o.image === "object") {
+        if (typeof o.image.url === "string") return o.image.url;
+        if (Array.isArray(o.image) && o.image[0]) {
+          const x = o.image[0];
+          return typeof x === "string" ? x : x?.url || "";
+        }
+      }
+      if (Array.isArray(o["@graph"])) {
+        for (const g of o["@graph"]) {
+          const u = walk(g, depth + 1);
+          if (u) return u;
+        }
+      }
+      for (const v of Object.values(o)) {
+        if (v && typeof v === "object") {
+          const u = walk(v, depth + 1);
+          if (u) return u;
+        }
+      }
+      return "";
+    };
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const node of scripts) {
+      try {
+        const data = JSON.parse(node.textContent || "{}");
+        const roots = Array.isArray(data) ? data : [data];
+        for (const root of roots) {
+          const u = walk(root);
+          if (u) return u.trim();
+        }
+      } catch (_) {}
+    }
+    return "";
+  };
+
+  const getAmazonProductImage = () => {
+    const bad = /sprite|nav-sprites|transparent|1x1|pixel|gif\.gif|grey-pixel/i;
+    const trySrc = (raw) => {
+      if (!raw || typeof raw !== "string") return "";
+      let src = raw.trim();
+      if (src.startsWith("{") || src.includes("&quot;")) {
+        try {
+          const o = JSON.parse(src.replace(/&quot;/g, '"'));
+          const keys = Object.keys(o).filter((k) => /^https?:\/\//i.test(k));
+          if (keys.length) {
+            keys.sort((a, b) => {
+              const wa = o[a]?.[0] ?? 0;
+              const wb = o[b]?.[0] ?? 0;
+              return wb - wa;
+            });
+            src = keys[0];
+          }
+        } catch (_) {}
+      }
+      src = absolutizeMediaUrl(src);
+      if (src && !bad.test(src)) return src;
+      return "";
+    };
+    const sels = [
+      "#landingImage",
+      "#imgBlkFront",
+      "#mainImage",
+      "#main-image",
+      "#landing-image",
+      "#imageBlock_feature_div img",
+      "#leftCol #landingImage",
+      'img[data-a-image-name="landingImage"]',
+      "#main-image-container img",
+      "#main-image-feature-container img",
+    ];
+    for (const sel of sels) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const hires = el.getAttribute?.("data-old-hires");
+      if (hires) {
+        const u = trySrc(hires);
+        if (u) return u;
+      }
+      const dyn = el.getAttribute?.("data-a-dynamic-image");
+      if (dyn) {
+        const u = trySrc(dyn);
+        if (u) return u;
+      }
+      const u = trySrc(el.getAttribute?.("src") || resolveImgSrc(el));
+      if (u) return u;
+    }
+    const anyHires = document.querySelector("[data-old-hires]");
+    if (anyHires) {
+      const u = trySrc(anyHires.getAttribute("data-old-hires"));
+      if (u) return u;
+    }
+    return "";
+  };
+
+  const pickGenericHeroProductImage = () => {
+    const badSrc =
+      /logo|icon|sprite|placeholder|favicon|avatar|badge|payment|1x1|pixel|spacer|trustpilot|navbar|social-share|facebook|pinterest|sprite|grey-pixel|transparent/i;
+    const scoped = [
+      "main img",
+      '[role="main"] img',
+      "article img",
+      "#productImage img",
+      "#product-image img",
+      ".product-gallery img",
+      ".product__media img",
+      ".product-single__photo img",
+      "[data-testid*=gallery] img",
+      "[data-test*=Gallery] img",
+      "#landingImage",
+      "#imgBlkFront",
+    ];
+    const seen = new Set();
+    const imgs = [];
+    for (const sel of scoped) {
+      try {
+        for (const el of querySelectorAllDeep(sel)) {
+          if (!seen.has(el)) {
+            seen.add(el);
+            imgs.push(el);
+          }
+        }
+      } catch (_) {}
+    }
+    if (imgs.length < 3) {
+      for (const el of querySelectorAllDeep("img")) {
+        if (!seen.has(el)) {
+          seen.add(el);
+          imgs.push(el);
+        }
+        if (imgs.length > 80) break;
+      }
+    }
+    let best = "";
+    let bestScore = -1e9;
+    for (const img of imgs) {
+      let src = resolveImgSrc(img);
+      if (!src || src.startsWith("data:")) continue;
+      src = absolutizeMediaUrl(src);
+      if (!src || badSrc.test(src)) continue;
+      const w = Number(img.getAttribute("width") || 0);
+      const h = Number(img.getAttribute("height") || 0);
+      let score = w && h ? w * h : 4000;
+      const dim = src.match(/(\d{2,4})x(\d{2,4})/);
+      if (dim) score = Math.max(score, parseInt(dim[1], 10) * parseInt(dim[2], 10));
+      if (/thumb|thumbnail|small|mini|50x|100x|150x|200x|icon\b/i.test(src)) score -= 400000;
+      if (/800x|1024|1200|1500|2048|large|grande|zoom/i.test(src)) score += 120000;
+      if (score > bestScore) {
+        bestScore = score;
+        best = src;
+      }
+    }
+    return best || null;
+  };
+
+  const imageLooksWeak = (u) =>
+    !u ||
+    String(u).trim().length < 12 ||
+    /logo|og-default|placeholder|favicon|sprite|avatar-default|mshops\/small|grey-pixel|transparent|data:image/i.test(
+      String(u)
+    );
+
+  /** Target PDP: prices often live under LWC/custom elements (open shadow) + data-test attrs. */
+  const extractTargetNextDataPrice = () => {
+    const cands = [];
+    const add = (raw, key = "", prio = 0) => {
+      const s = String(raw ?? "").trim();
+      if (!s) return;
+      if (/(?:quantity|rating|count|review|index|id|position|shipping|threshold|save|off|discount)/i.test(key)) return;
+      const p = parsePriceText(s);
+      if (p != null && p > 0 && p < 50000) {
+        const finalP = (Number.isInteger(p) && p >= 100 && !s.includes(".")) ? p / 100 : p;
+        cands.push({ val: finalP, prio });
+      }
+    };
+
+    const node = document.querySelector("#__NEXT_DATA__");
+    if (node) {
+      try {
+        const data = JSON.parse(node.textContent);
+        const p = data?.props?.pageProps?.product;
+        if (p) {
+          const mainPrice = p.price?.current_retail || p.price?.current_retail_min || p.price?.price;
+          if (mainPrice) add(mainPrice, "primary", 100);
+          
+          if (Array.isArray(p.children)) {
+            for (const child of p.children) {
+              const cp = child.price?.current_retail || child.price?.price;
+              if (cp) add(cp, "variant", 80);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!cands.length && node) {
+      // Fallback to regex scan if JSON parse fails or path is different
+      const t = node.textContent || "";
+      for (const mm of t.matchAll(/"(current_retail|current_retail_min|price|current_price|list_price|comparison_price)"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi)) {
+        let prio = 10;
+        if (mm[1].includes("current")) prio = 50;
+        if (mm[1].includes("list")) prio = -20;
+        add(mm[2], mm[1], prio);
+      }
+    }
+
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.prio - a.prio || a.val - b.val);
+    return cands[0].val;
+  };
+
+  const getTargetPrice = () => {
+    // 1. Priority 1: High-confidence JSON-LD / NEXT_DATA
+    const fromNext = extractTargetNextDataPrice();
+    if (fromNext != null) return fromNext;
+
+    // 2. Priority 2: Very specific "Primary" price selectors
+    const scope = document.querySelector('main, #mainContainer, [data-test="product-detail-page"]') || document.body;
+    const primarySelectors = [
+      '[data-test="product-price"]',
+      '[data-test="@web/Price"]',
+      '#pdp-pricing-id [data-test="product-price"]',
+      '[class*="CurrentPrice"]',
+    ];
+    for (const sel of primarySelectors) {
+      const el = scope.querySelector(sel);
+      if (el) {
+        const raw = el.textContent || "";
+        if (raw && !looksLikeBadPrice(raw, 0, raw.length)) {
+          const p = parsePriceText(raw);
+          if (p != null && p > 0.5) return p;
+        }
+      }
+    }
+
+    // 3. Fallback: Broader generic scan
+    const selectors = [
+      '[data-test*="product-price" i]',
+      '[data-test*="/Price" i]',
+      '[data-test*="ProductPrice" i]',
+      '[data-test*="current-price" i]',
+      '[class*="currentPrice"]',
+    ];
+    const cands = [];
+    for (const sel of selectors) {
+      try {
+        scope.querySelectorAll(sel).forEach((el) => {
+          const raw = el.getAttribute?.("content") || el.getAttribute?.("value") || el.textContent || "";
+          if (!raw || raw.length > 600) return;
+          if (looksLikeBadPrice(raw, 0, raw.length)) return;
+          const p = parsePriceText(raw);
+          if (p != null && p > 0 && p < 50000) cands.push(p);
+        });
+      } catch (_) {}
+    }
+    
+    if (cands.length) return pickRepresentativePrice(cands);
+    return pickNearCartPriceFromText(collectPageTextDeep(22000));
+  };
+
   let price = null;
   if (isAmazon) {
     price = getAmazonPrice() ?? getAmazonPriceFromBuybox();
+  } else if (isTarget) {
+    price =
+      getTargetPrice() ??
+      getMetaTagPrice() ??
+      extractJsonLdProductPrice() ??
+      priceNearPrimaryAddToCart() ??
+      pickNearCartPriceFromText(collectPageTextDeep(22000));
   } else if (isShein) {
-    price = getSheinPrice() ?? extractJsonLdProductPrice() ?? priceNearPrimaryAddToCart();
+    price =
+      getSheinPrice() ??
+      getMetaTagPrice() ??
+      extractJsonLdProductPrice() ??
+      extractShopifyStyleJsonPrices() ??
+      priceNearPrimaryAddToCart() ??
+      pickNearCartPriceFromText(collectPageTextDeep(18000));
+  } else if (isFashionNova) {
+    price =
+      extractShopifyPricesFromRawScripts() ??
+      extractShopifyStyleJsonPrices() ??
+      getMetaTagPrice() ??
+      extractJsonLdProductPrice() ??
+      priceNearPrimaryAddToCart() ??
+      pickNearCartPriceFromText(collectPageTextDeep(24000)) ??
+      pickNearCartPriceFromText(
+        (document.querySelector("main") || document.body).innerText.replace(/\s+/g, " ").slice(0, 14000)
+      );
   } else {
-    price = extractJsonLdProductPrice();
+    price =
+      getMetaTagPrice() ??
+      extractJsonLdProductPrice() ??
+      extractShopifyStyleJsonPrices() ??
+      priceNearPrimaryAddToCart() ??
+      pickNearCartPriceFromText(collectPageTextDeep(22000));
   }
 
   if (price == null && !isAmazon) {
     const genericSels = [
       ".price", ".product-price", ".sale-price", ".current-price",
       ".product__price", ".pdp-price", ".cider-product-price",
+      ".price-item", ".price-item--regular", ".price-item--sale",
+      ".product-single__price", ".price .money", "span.money",
       "[itemprop='price']", "[data-testid*='price']",
       "[data-test='product-price']", "[data-test*='current-price']",
-      "[data-test*='product-price']"
+      "[data-test*='product-price']", "[data-product-price]",
+      "[id*='ProductPrice']", "[class*='product-price']",
+      "[data-test*='Price']",
     ];
     const foundPrices = [];
     for (const sel of genericSels) {
-      document.querySelectorAll(sel).forEach((el) => {
+      const els = querySelectorAllDeep(sel);
+      els.forEach((el) => {
         const raw = el.textContent || el.getAttribute("content") || "";
-        if (looksLikeSavingsAmount(raw, 0, raw.length)) return;
+        if (looksLikeBadPrice(raw, 0, raw.length)) return;
         const p = parsePriceText(raw);
         if (p != null && p > 0) foundPrices.push(p);
       });
@@ -282,6 +1013,10 @@ function getPageData() {
   }
 
   if (price == null) price = priceNearPrimaryAddToCart();
+
+  if (price == null && !isAmazon) {
+    price = pickNearCartPriceFromText(collectPageTextDeep(26000));
+  }
 
   const product_description = (
     document.querySelector('meta[property="og:description"]')?.content ||
@@ -334,10 +1069,39 @@ function getPageData() {
   };
   const finalUrl = stripTrackingParams(location.href).trim();
 
-  let image_url = (ogImageRaw || "").trim();
-  if (isShein) {
-    const sheinImg = pickSheinProductImage();
-    if (sheinImg) image_url = sheinImg;
+  const jsonLdImg = extractJsonLdProductImage();
+
+  let image_url = absolutizeMediaUrl((ogImageRaw || "").trim());
+
+  if (isAmazon) {
+    const amzImg = getAmazonProductImage();
+    if (amzImg) image_url = absolutizeMediaUrl(amzImg);
+  } else if (isShein) {
+    // Shein og:image is often very reliable if it contains "goods_img"
+    const sheinOg = (ogImageRaw || "").trim();
+    if (sheinOg && /goods_img|origin/i.test(sheinOg)) {
+      image_url = absolutizeMediaUrl(sheinOg);
+    } else {
+      const sheinImg = pickSheinProductImage();
+      if (sheinImg) image_url = absolutizeMediaUrl(sheinImg);
+    }
+  } else if (isFashionNova) {
+    const shopImg = pickShopifyStyleProductImage() || extractShopifyMediaFromPage();
+    if (shopImg) {
+      image_url = absolutizeMediaUrl(shopImg);
+    } else if (
+      image_url &&
+      /logo|og-default|placeholder|favicon|sprite|files\/[^/]*logo/i.test(image_url)
+    ) {
+      const fallbackImg =
+        document.querySelector('meta[property="og:image:secure_url"]')?.content ||
+        extractShopifyMediaFromPage() ||
+        querySelectorAllDeep('img[src*="cdn.shopify.com"], img[src*="/cdn/shop/"]')
+          .map((img) => resolveImgSrc(img))
+          .find((u) => u && !/logo|placeholder/i.test(u)) ||
+        "";
+      if (fallbackImg) image_url = absolutizeMediaUrl(fallbackImg);
+    }
   } else if (
     image_url &&
     /logo|og-default|placeholder|favicon|sprite/i.test(image_url) &&
@@ -347,8 +1111,22 @@ function getPageData() {
       document.querySelector('meta[property="og:image:secure_url"]')?.content ||
       document.querySelector('article img[src^="http"], main img[src^="http"]')?.src ||
       "";
-    if (fallbackImg && !/logo/i.test(fallbackImg)) image_url = fallbackImg;
+    if (fallbackImg && !/logo/i.test(fallbackImg)) image_url = absolutizeMediaUrl(fallbackImg);
   }
+
+  if (imageLooksWeak(image_url)) {
+    const hero = pickGenericHeroProductImage();
+    if (hero) image_url = absolutizeMediaUrl(hero);
+  }
+  if (imageLooksWeak(image_url) && jsonLdImg) {
+    image_url = absolutizeMediaUrl(jsonLdImg);
+  }
+  if (imageLooksWeak(image_url)) {
+    const pre = document.querySelector('link[rel="preload"][as="image"]')?.getAttribute("href");
+    if (pre && !imageLooksWeak(pre)) image_url = absolutizeMediaUrl(pre);
+  }
+
+  image_url = absolutizeMediaUrl(image_url);
 
   return {
     item_name: finalName.slice(0, 250),
@@ -442,8 +1220,8 @@ function setCapturePreview(result) {
   wrap.hidden = false;
   if (img) {
     imgEl.hidden = false;
-    imgEl.src = img;
     imgEl.referrerPolicy = "no-referrer";
+    imgEl.src = img;
     imgEl.onerror = () => {
       imgEl.hidden = true;
     };
@@ -465,12 +1243,17 @@ async function resolveJwt() {
   // Honor explicit user actions: if a token is already stored, trust it and don't auto-resync
   // from open cart-it.com tabs (otherwise sign-out and sign-in-as-other-user keep flipping back).
   const stored = await chrome.storage.local.get(["jwt", "manualAuth"]);
+  // Signed-out must win over any stale jwt — the content script can push CARTIT_TOKEN again
+  // before localStorage is cleared, and the background used to re-store jwt without checking.
+  if (stored.manualAuth === "signed-out") {
+    if (isLikelyJwt(stored.jwt)) {
+      await chrome.storage.local.remove(["jwt", "jwt_origin"]);
+    }
+    return "";
+  }
   if (isLikelyJwt(stored.jwt)) {
     authRejected = false;
     return stored.jwt;
-  }
-  if (stored.manualAuth === "signed-out") {
-    return "";
   }
   await requestTokenSyncFromBackground();
   await syncTokenFromOpenTabs();
@@ -635,6 +1418,9 @@ function requestTokenSyncFromBackground() {
 }
 
 async function syncTokenFromOpenTabs() {
+  const { manualAuth } = await chrome.storage.local.get(["manualAuth"]);
+  if (manualAuth === "signed-out") return false;
+
   const tabs = await chrome.tabs.query({});
   const localTabs = tabs.filter((tab) => {
     if (!tab?.id || !tab.url) return false;
@@ -672,11 +1458,19 @@ async function refreshFromTab() {
     }
 
     const manualPriceEl = document.getElementById("manualPrice");
-    if (manualPriceEl) {
+    if (manualPriceEl && !manualPriceEl.dataset.cartItHintBound) {
+      manualPriceEl.dataset.cartItHintBound = "1";
       manualPriceEl.addEventListener("input", () => {
         manualPriceDirty = true;
+        const v = parseFloat(String(manualPriceEl.value || "").trim());
+        if (Number.isFinite(v) && v > 0) {
+          setPriceHint(`Using your price: $${v.toFixed(2)}`, true);
+        } else if (!v) {
+          setPriceHint("", true);
+        }
       });
-
+    }
+    if (manualPriceEl) {
       if (!manualPriceDirty) {
         manualPriceEl.placeholder = "Detecting price...";
         manualPriceEl.value = "";
@@ -710,7 +1504,12 @@ async function refreshFromTab() {
     if (Number(result?.current_price || 0) > 0) {
       setPriceHint(`Auto price: $${Number(result.current_price).toFixed(2)}`, true);
     } else {
-      setPriceHint("Price not found. Please enter manually.", false);
+      const manual = parseFloat(String(manualPriceEl?.value || "").trim());
+      if (Number.isFinite(manual) && manual > 0 && manualPriceDirty) {
+        setPriceHint(`Using your price: $${manual.toFixed(2)}`, true);
+      } else {
+        setPriceHint("Price not found. Please enter manually.", false);
+      }
     }
     
     const title = (result.item_name || "").trim();
@@ -799,7 +1598,7 @@ async function loadWishlistItems() {
       const el = document.createElement("div");
       el.className = "wishlist-item";
       el.innerHTML = `
-        <img src="${item.image_url || 'icon.png'}" onerror="this.src='icon.png'" />
+        <img src="${item.image_url || ""}" alt="" />
         <div class="wishlist-item-info">
           <p class="wishlist-item-name">${truncate(item.item_name, 40)}</p>
           <p class="wishlist-item-price">$${Number(item.current_price || 0).toFixed(2)}</p>
@@ -809,6 +1608,18 @@ async function loadWishlistItems() {
           </div>
         </div>
       `;
+      const thumb = el.querySelector("img");
+      if (thumb) {
+        const fallbackSrc = chrome.runtime.getURL("icon-128.png");
+        if (!item.image_url) thumb.src = fallbackSrc;
+        thumb.addEventListener(
+          "error",
+          () => {
+            thumb.src = fallbackSrc;
+          },
+          { once: true }
+        );
+      }
       el.querySelector(".open-btn").addEventListener("click", () => chrome.tabs.create({ url: item.product_url }));
       el.querySelector(".delete-btn").addEventListener("click", async () => {
         if (!confirm("Delete this item?")) return;
@@ -981,9 +1792,10 @@ document.getElementById("goToDashboardBtn")?.addEventListener("click", async () 
 });
 
 document.getElementById("signOutBtn")?.addEventListener("click", async () => {
-  await clearTokenFromOpenTabs();
-  await chrome.storage.local.remove(["jwt", "jwt_origin"]);
+  // Set signed-out first so token bridge / background cannot re-store jwt during cleanup.
   await chrome.storage.local.set({ manualAuth: "signed-out" });
+  await chrome.storage.local.remove(["jwt", "jwt_origin"]);
+  await clearTokenFromOpenTabs();
   currentUserLabel = "";
   await setAuthLine();
   await loadCategories();
@@ -1040,6 +1852,12 @@ document.getElementById("category")?.addEventListener("change", () => {
 
 document.getElementById("closePanelBtn")?.addEventListener("click", () => {
   window.close();
+});
+
+// Auto-refresh when tab changes or loads
+chrome.tabs.onActivated.addListener(() => refreshFromTab());
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "complete") refreshFromTab();
 });
 
 // Initialization

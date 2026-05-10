@@ -697,6 +697,27 @@ function extractPriceFromJsonLdObject(node: any): number | null {
   return null;
 }
 
+/** Shopify JSON (Fashion Nova, etc.): numeric `price` / `compare_at_price` are usually cents (1599 → $15.99). */
+function extractShopifyCentsPricesFromHtml(html: string): number | null {
+  const cands: number[] = [];
+  for (const m of html.matchAll(
+    /"(?:price|compare_at_price|compareAtPrice)"\s*:\s*(\d{3,8})\b/gi
+  )) {
+    const n = Number(m[1]);
+    if (n >= 100 && n <= 99999999) {
+      const d = n / 100;
+      if (d >= 0.5 && d < 50000) cands.push(d);
+    }
+  }
+  if (!cands.length) return null;
+  const uniq = [...new Set(cands)].sort((a, b) => a - b);
+  if (uniq.length === 1) return uniq[0];
+  const lo = uniq[0];
+  const hi = uniq[uniq.length - 1];
+  if (hi / lo >= 1.85) return lo;
+  return lo;
+}
+
 function extractPriceFromHtml(html: string): number | null {
   const metaPatterns = [
     /property=["']product:price:amount["'][^>]*content=["']([0-9]+(?:\.[0-9]+)?)["']/i,
@@ -712,17 +733,30 @@ function extractPriceFromHtml(html: string): number | null {
     }
   }
 
+  const fromShopifyCents = extractShopifyCentsPricesFromHtml(html);
+  if (fromShopifyCents != null) return fromShopifyCents;
+
   // Generic JSON patterns often found in script tags or data attributes
   const jsonPricePatterns = [
-    /"price"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/i,
-    /"lowPrice"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/i,
-    /"amount"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/i,
+    /"price"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi,
+    /"lowPrice"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi,
+    /"amount"\s*:\s*"?([0-9]+(?:\.[0-9]{1,2})?)"?/gi,
   ];
   for (const re of jsonPricePatterns) {
-    const m = html.match(re);
-    if (m?.[1]) {
-      const p = parsePositivePrice(m[1]);
-      if (p != null && p > 0) return p;
+    for (const m of html.matchAll(re)) {
+      const raw = m[1];
+      if (!raw) continue;
+      if (!raw.includes(".") && /^\d+$/.test(raw)) {
+        const n = Number(raw);
+        if (n >= 100 && n <= 99999999) {
+          const d = n / 100;
+          if (d >= 0.5 && d < 50000) return d;
+        }
+        if (n > 0 && n < 50000) return n;
+      } else {
+        const p = parsePositivePrice(raw);
+        if (p != null && p > 0 && p < 500000) return p;
+      }
     }
   }
 

@@ -231,10 +231,16 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 10px 14px;
-        margin: 0 0 14px;
+        margin: 14px 0 14px;
       }
       .page-actions .link-btn {
         margin-top: 0;
+      }
+      .ai-summarize-hint {
+        font-size: 11px;
+        line-height: 1.45;
+        color: #64748b;
+        margin: -6px 0 14px;
       }
       #capturePreviewImg {
         display: block;
@@ -383,18 +389,11 @@
         <!-- SAVE TAB -->
         <div id="savePanel" class="tab-panel active">
           <div class="popup-header">
-            <img src="store-logo-128.png" width="32" height="32" alt="cart-It" />
+            <img src="icon-128.png" width="32" height="32" alt="" />
             <h3>cart-It</h3>
           </div>
           
           <p id="tabHint" aria-live="polite"></p>
-
-          <div class="page-actions">
-            <button type="button" id="aiSummarizeBtn" class="link-btn" style="color:#8b5cf6">
-              ✨ AI Summarize
-            </button>
-            <button type="button" id="reScrapeBtn" class="link-btn">Refresh page data</button>
-          </div>
 
           <div id="capturePreview" class="capture-preview" hidden>
             <div class="capture-preview-header">
@@ -403,6 +402,23 @@
             <img id="capturePreviewImg" alt="" />
             <p id="capturePreviewDesc"></p>
           </div>
+
+          <div class="page-actions">
+            <button
+              type="button"
+              id="aiSummarizeBtn"
+              class="link-btn"
+              style="color:#8b5cf6"
+              title="Fills the notes box from the product page using AI. Requires sign-in."
+            >
+              ✨ AI Summarize
+            </button>
+            <button type="button" id="reScrapeBtn" class="link-btn">Refresh page data</button>
+          </div>
+          <p class="ai-summarize-hint" id="aiSummarizeHint">
+            Product photo and price are filled from the page when possible (see above). If price is missing, type it in
+            the Price field — you can still save the item.
+          </p>
 
           <label for="listScope">Save to</label>
           <select id="listScope">
@@ -442,7 +458,7 @@
         <!-- WISHLIST TAB -->
         <div id="wishlistPanel" class="tab-panel">
           <div class="popup-header">
-            <img src="store-logo-128.png" width="32" height="32" alt="cart-It" />
+            <img src="icon-128.png" width="32" height="32" alt="" />
             <h3>Your Items</h3>
           </div>
           <div id="wishlistItemsContainer">
@@ -455,7 +471,7 @@
         <!-- ACCOUNT TAB -->
         <div id="accountPanel" class="tab-panel">
           <div class="popup-header">
-            <img src="store-logo-128.png" width="32" height="32" alt="cart-It" />
+            <img src="icon-128.png" width="32" height="32" alt="" />
             <h3>Account</h3>
           </div>
           

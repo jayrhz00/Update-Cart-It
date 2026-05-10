@@ -113,6 +113,46 @@ const LandingPage = () => {
         </div>
       </section>
 
+      <section className="section-padding manual-install-section" aria-labelledby="manual-install-landing">
+        <div className="manual-install-inner">
+          <h2 id="manual-install-landing" className="section-title">
+            Installing the extension from a ZIP
+          </h2>
+          <p className="section-subtitle manual-install-subtitle">
+            If you are not installing from the Chrome, Edge, or Firefox store yet, follow these steps after you
+            open the download page.
+          </p>
+          <ol className="manual-install-steps">
+            <li>
+              Click <strong>Download Cart-It Extension</strong> above (or open the install page) and download the
+              ZIP for your browser.
+            </li>
+            <li>Unzip it to a permanent folder on your computer.</li>
+            <li>
+              Chrome or Edge: open <code className="manual-install-code">chrome://extensions</code> or{' '}
+              <code className="manual-install-code">edge://extensions</code>, enable <strong>Developer mode</strong>,
+              then <strong>Load unpacked</strong>. Pick the folder that contains <code className="manual-install-code">manifest.json</code>{' '}
+              (not the <code className="manual-install-code">.zip</code> and not a parent folder). If you use the
+              project from GitHub, that folder is named <code className="manual-install-code">extension</code>.
+            </li>
+            <li>
+              Firefox: use <code className="manual-install-code">about:debugging#/runtime/this-firefox</code> and
+              load the Firefox package as a temporary add-on if you use that ZIP.
+            </li>
+            <li>Pin Cart-It from the browser toolbar (puzzle icon) so you can open the side panel on any store.</li>
+          </ol>
+          <div className="manual-install-cta">
+            <button
+              type="button"
+              className="download-btn download-btn--outline"
+              onClick={() => window.open('/extension-install.html', '_blank', 'noopener,noreferrer')}
+            >
+              Open full install guide
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Features: chart-inspired layout */}
       <section className="features-section" aria-labelledby="features-heading">
         <div className="features-section-inner">
