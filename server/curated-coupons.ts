@@ -1,25 +1,25 @@
-/**
- * Curated retailer hubs for the Coupons page (GET /api/public/curated-coupons).
- *
- * We intentionally do **not** ship guesswork promo codes — they expire quickly and frustrate users.
- * Each row points to the store’s official offers / loyalty hub where **live** codes live.
- * Optional `code` is only present when we still surface a copyable hint (often category-wide).
- */
+
+// This file stores a small curated list of official retailer offer pages. (GET /api/public/curated-coupons).
+
+// links users to official retailer pages where stores post
+// their own live deals, rewards, membership offers, or promotions.
 export interface CuratedCoupon {
   id: string;
   store_name: string;
   store_domain: string | null;
-  /** Set when users can copy something meaningful; omit or null for link-only hubs. */
+// Cart-It does not offer coupons. 
   code: string | null;
-  discount_label: string | null;
+  discount_label: string | null; // Describes type of deal page
   fine_print: string | null;
   expires_at: string | null;
-  /** Where the guidance comes from (transparency). */
+  // Shows where this information comes from for transparency
   source_site: string;
-  /** Prefer this over https://{store_domain} for the primary “official offers” action. */
+  // Official retailer page where users can check live deals or rewards
   deals_url?: string | null;
 }
-
+ // Curated list of official retailer offer/deal pages
+ // No coupons 
+ // Trusted links to official retailer deal hubs
 export const CURATED_COUPONS: CuratedCoupon[] = [
   {
     id: "cur-target-hub",

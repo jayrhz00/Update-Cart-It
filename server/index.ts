@@ -230,11 +230,18 @@ function authenticateToken
   }
 }
 
+// Helper functions- support important backend features of the Cart-It system
+// Cleans and validates product prices from websites
+// Builds a safe frontend URL for redirects and API communication
+// Creates/sends notifications to users and collaborators in DB
+// Verifies that user has permission to access a group
+
+// Converts different price formats into numbers 
 function parsePositivePrice(raw: unknown): number | null {
   const normalized =
     typeof raw === "string"
       ? (() => {
-          let token = raw.replace(/\s+/g, "").replace(/[^0-9.,]/g, "");
+          let token = raw.replace(/\s+/g, "").replace(/[^0-9.,]/g, ""); // Keeps only numbers, commas, and periods 
           const hasComma = token.includes(",");
           const hasDot = token.includes(".");
           if (hasComma && hasDot) {
@@ -259,20 +266,24 @@ function parsePositivePrice(raw: unknown): number | null {
   return Number(num.toFixed(2));
 }
 
+// Returns the frontend website URL for the application
+// https://cart-it.com
 function getFrontendBaseUrl(): string {
   const raw = String(process.env.FRONTEND_URL || "https://cart-it.com").trim();
   return raw.replace(/\/+$/, "");
 }
 
+// Inserts a notification into the notifications table
+// Used for price drops, collabs, messages
 async function insertUserNotification(params: {
   userId: number;
   message: string;
   itemId?: number | null;
   groupId?: number | null;
 }): Promise<void> {
-  const { userId, message, itemId = null, groupId = null } = params;
+  const { userId, message, itemId = null, groupId = null } = params; // pulls values out of params object
   try {
-    await pool.query(
+    await pool.query( // Inserts notification into PostgreSQL db 
       `
       INSERT INTO notifications (user_id, item_id, group_id, message, is_read)
       VALUES ($1, $2, $3, $4, false)
@@ -283,16 +294,16 @@ async function insertUserNotification(params: {
     console.error("insertUserNotification failed:", error);
   }
 }
-
+// Sends notifications to collaborators inside shared groups
 async function notifyGroupPeers(params: {
   groupId: number;
   senderUserId: number;
   message: string;
   itemId?: number | null;
 }): Promise<void> {
-  const { groupId, senderUserId, message, itemId = null } = params;
+  const { groupId, senderUserId, message, itemId = null } = params; // Extracts values
   try {
-    const peers = await pool.query(
+    const peers = await pool.query( // Finds all users connected to the group
       `
       SELECT DISTINCT uid FROM (
         SELECT owner_id AS uid FROM groups WHERE group_id = $1
@@ -304,7 +315,7 @@ async function notifyGroupPeers(params: {
       [groupId, senderUserId]
     );
 
-    for (const row of peers.rows) {
+    for (const row of peers.rows) { // Loops through all users found 
       const uid = Number(row.uid);
       if (!Number.isFinite(uid)) continue;
       await insertUserNotification({
@@ -318,9 +329,10 @@ async function notifyGroupPeers(params: {
     console.error("notifyGroupPeers failed:", error);
   }
 }
-
+// Checks if a user has permission to access a group
+// User can access if they are owner or member 
 async function userCanAccessGroup(userId: number, groupId: number): Promise<boolean> {
-  const r = await pool.query(
+  const r = await pool.query( // search db for matching access permission
     `
     SELECT 1
     FROM groups g
@@ -336,9 +348,12 @@ async function userCanAccessGroup(userId: number, groupId: number): Promise<bool
     `,
     [groupId, userId]
   );
-  return r.rows.length > 0;
+  return r.rows.length > 0; // Returns true if user has access
 }
-
+// Checks if user can edit a saved cart item
+// Saves, updates, or deletes users private notes for an item
+// Cleans unsafe HTML characters before displaying text in emails/pages
+// Sends group invite emails and price drop alerts 
 async function userCanEditCartItemRow(
   editorUserId: number,
   row: { user_id: number; group_id: number | null }
@@ -347,7 +362,7 @@ async function userCanEditCartItemRow(
   if (row.group_id == null) return false;
   return userCanAccessGroup(editorUserId, Number(row.group_id));
 }
-
+// Saves, updates, or deletes a private note for an item
 async function upsertPrivateNoteForItem(
   itemId: number,
   userId: number,
@@ -361,7 +376,7 @@ async function upsertPrivateNoteForItem(
     );
     return;
   }
-  await pool.query(
+  await pool.query( // If note has text insert to db 
     `
     INSERT INTO item_private_notes (item_id, user_id, body, updated_at)
     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
@@ -371,7 +386,7 @@ async function upsertPrivateNoteForItem(
     [itemId, userId, trimmed]
   );
 }
-
+// Escapes unsafe HTML characters
 function escapeHtml(raw: string): string {
   return raw
     .replace(/&/g, "&amp;")
@@ -379,7 +394,7 @@ function escapeHtml(raw: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
-
+// sends email invite to user 
 async function sendGroupInviteEmail({
   toEmail,
   toName,
@@ -393,8 +408,8 @@ async function sendGroupInviteEmail({
   groupName: string;
   inviteUrl: string;
 }): Promise<{ sent: boolean; reason?: string }> {
-  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
-  const fromEmail = String(process.env.RESEND_FROM_EMAIL || "").trim();
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim(); // Gets the Resend email API key from the .env file
+  const fromEmail = String(process.env.RESEND_FROM_EMAIL || "").trim(); // Gets sender email address
 
   if (!apiKey || !fromEmail) {
     return {
@@ -407,7 +422,8 @@ async function sendGroupInviteEmail({
   const safeOwner = ownerName || "A Cart-It user";
   const safeGroup = groupName || "your wishlist";
   const subject = `${safeOwner} invited you to collaborate on "${safeGroup}"`;
-  const html = `
+  // HTML design/ content of email
+  const html = ` 
     <div style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#111827">
       <h2 style="margin-bottom:8px">You were invited to a Cart-It wishlist</h2>
       <p style="margin-top:0">Hi ${safeToName},</p>
@@ -420,7 +436,7 @@ async function sendGroupInviteEmail({
       <p style="color:#6b7280;font-size:13px">If this was not expected, you can ignore this email.</p>
     </div>
   `;
-
+// uses reusable resend email function
   return sendResendEmail({
     apiKey,
     fromEmail,
@@ -458,8 +474,8 @@ async function sendResendEmail({
     if (text && text.trim()) {
       payload.text = text;
     }
-    console.log(`Sending email via Resend to ${toEmail}. Subject: "${subject}"`);
-    const response = await fetch("https://api.resend.com/emails", {
+    console.log(`Sending email via Resend to ${toEmail}. Subject: "${subject}"`); // Logs email attempt in backend terminal
+    const response = await fetch("https://api.resend.com/emails", { // Sends POST request to Resend's email API
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -478,7 +494,7 @@ async function sendResendEmail({
         displayReason = "Resend is in testing mode. You can only send emails to your own registered address until you verify a custom domain at resend.com.";
       }
 
-      return {
+      return { // Handles error like network or API
         sent: false,
         reason: displayReason,
       };
@@ -492,7 +508,7 @@ async function sendResendEmail({
     };
   }
 }
-
+// Cart-It detects that a saved item has a lower price than before
 async function sendPriceDropEmail({
   toEmail,
   toName,
@@ -546,7 +562,8 @@ async function sendPriceDropEmail({
     genericErrorMessage: "Failed to contact price-drop email provider.",
   });
 }
-
+// Sends OOS email alerts, password resets, extracts product prices from website
+// Reads prices from HTML and JSON-LD product metadata
 async function sendOutOfStockEmail({
   toEmail,
   toName,
@@ -592,7 +609,7 @@ async function sendOutOfStockEmail({
     genericErrorMessage: "Failed to contact out-of-stock email provider.",
   });
 }
-
+// Allows user to reset pw 
 async function sendPasswordResetEmail({
   toEmail,
   toName,
@@ -655,10 +672,10 @@ async function sendPasswordResetEmail({
     genericErrorMessage: "Failed to contact password-reset email provider.",
   });
 }
-
+// Extracts prices
 function extractPriceFromJsonLdObject(node: any): number | null {
   if (!node || typeof node !== "object") return null;
-  const offers = node.offers || node.aggregateOffer || null;
+  const offers = node.offers || node.aggregateOffer || null; // Looks for offer related pricing data
   if (offers) {
     const direct = parsePositivePrice((offers as any).price);
     if (direct != null) return direct;

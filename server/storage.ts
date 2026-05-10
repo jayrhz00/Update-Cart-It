@@ -1,16 +1,8 @@
 // Cart-It storage layer
-// ---------------------------------------------------------------------------
-// STUDENT NOTES — what this file is and why it exists
-//
-// - "Storage" = the place your API reads/writes users and groups. Routes in `index.ts` import
-//   `storage` so they do not scatter the same SQL in twenty different files.
-// - `MemStorage` is an in-memory fake database (Maps). Useful to understand CRUD patterns
-//   without Postgres; the live server uses `DatabaseStorage` instead.
-// - `DatabaseStorage` runs real SQL through `pool` from `db.ts`. Many cart/item routes still
-//   use `pool.query` directly in `index.ts` for history — that is OK for a class project; you
-//   could gradually move that SQL into this class as you refactor.
-// - TypeScript shapes for rows live in `../shared/schema.ts`; this file turns those types
-//   into INSERT/SELECT statements.
+
+// Storage = the place your API reads/writes users and groups. Routes in index.ts import
+// MemStorage is an in-memory fake database (Maps)/CRUD patterns
+
 
 
 
@@ -439,15 +431,14 @@ export class MemStorage implements IStorage
 }
 export class DatabaseStorage implements IStorage
     {
-        // STUDENT NOTE:
+    
         // This class is the real PostgreSQL-backed implementation used at runtime.
         // It currently has core user/group methods implemented, while many optional
         // interface methods are placeholders for future expansion.
-        //
-        // Why keep placeholders?
-        // - The interface documents the full storage contract.
-        // - You can implement missing methods incrementally without changing route code.
-        // - It shows clear next steps for project growth.
+      
+        // The interface documents the full storage contract.
+        // You can implement missing methods incrementally without changing route code.
+    
 
         // Creates new user in PostgreSQL
         async createUser(user: InsertUser): Promise<User>       
@@ -620,7 +611,7 @@ async updateGroup(): Promise<Group | undefined>
 }
 
 // ---- EXPORTED STORAGE (singleton) ----
-// One shared `storage` object for the whole Node process. All routes import the same instance
+// One shared storage object for the whole Node process. All routes import the same instance
 // so every request sees the same database connection pool underneath.
 export const storage = new DatabaseStorage();
 

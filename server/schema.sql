@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS cart_items
         CHECK (purchase_price IS NULL OR purchase_price >= 0)
 );
 
+-- Table 5
 -- Per-user private notes for a cart item (not visible to other collaborators)
 CREATE TABLE IF NOT EXISTS item_private_notes
 (
@@ -142,6 +143,7 @@ CREATE TABLE IF NOT EXISTS item_private_notes
     PRIMARY KEY (item_id, user_id)
 );
 
+--Table 6
 -- Shared thread: comments on an item visible to everyone with access to the wishlist
 CREATE TABLE IF NOT EXISTS item_group_comments
 (
@@ -158,6 +160,7 @@ CREATE TABLE IF NOT EXISTS item_group_comments
 
 CREATE INDEX IF NOT EXISTS idx_item_group_comments_item ON item_group_comments(item_id);
 
+--Table 7
 -- Shared thread: comments on the wishlist/group itself (not tied to one item)
 CREATE TABLE IF NOT EXISTS group_comments
 (
@@ -174,7 +177,7 @@ CREATE TABLE IF NOT EXISTS group_comments
 
 CREATE INDEX IF NOT EXISTS idx_group_comments_group ON group_comments(group_id);
 
--- TABLE 5: price_history 
+-- TABLE 8: price_history 
 -- Stores past price records for each saved item 
 -- Tracks price changes over time 
 
@@ -195,7 +198,7 @@ CREATE TABLE IF NOT EXISTS price_history
     CHECK (price >= 0)
 );
 
--- TABLE 6: notifications
+-- TABLE 9: notifications
 -- Alerts for the signed-in user (price drops, stock, invites). item_id is optional when the alert is list-level only.
 
 CREATE TABLE IF NOT EXISTS notifications
@@ -224,6 +227,6 @@ CREATE TABLE IF NOT EXISTS notifications
         ON DELETE CASCADE
 );
 
--- Sample rows for all six core tables (users, groups, group_members, cart_items,
--- price_history, notifications) are applied at API startup from scripts/seed_demo_data.sql
--- (see initializeDatabase in server/index.ts). That keeps DDL here and idempotent DML there.
+-- Sample rows for all 9 tables (users, groups, group_members, cart_items,
+-- item_private_notes, item_group_comments, group_comments, price_history, notifications) are applied at API startup from scripts/seed_demo_data.sql
+-- (see initializeDatabase in server/index.ts). 
