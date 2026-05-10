@@ -2,9 +2,9 @@
 -- Cart-It DB Schema 
 -- Stores raw PostgreSQL table definitions
 --
--- STUDENT DEMO TIP: Core tables are users, groups, group_members, cart_items, price_history,
+-- Core tables are users, groups, group_members, cart_items, price_history,
 -- notifications. Extra collaboration tables (item_private_notes, item_group_comments,
--- group_comments) are created here too — the API may ALTER/CREATE more at startup in index.ts
+-- group_comments) are created here too. The API may ALTER/CREATE more at startup in index.ts
 -- for backwards compatibility. `initializeDatabase` runs this whole file once when the server boots.
 -- In psql: \dt lists tables, \d table_name shows columns.
 
@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS cart_items
 );
 
 -- Table 5
+-- Table 5
 -- Per-user private notes for a cart item (not visible to other collaborators)
 CREATE TABLE IF NOT EXISTS item_private_notes
 (
@@ -143,6 +144,7 @@ CREATE TABLE IF NOT EXISTS item_private_notes
     PRIMARY KEY (item_id, user_id)
 );
 
+-- Table 6
 --Table 6
 -- Shared thread: comments on an item visible to everyone with access to the wishlist
 CREATE TABLE IF NOT EXISTS item_group_comments
@@ -160,6 +162,7 @@ CREATE TABLE IF NOT EXISTS item_group_comments
 
 CREATE INDEX IF NOT EXISTS idx_item_group_comments_item ON item_group_comments(item_id);
 
+-- Table 7
 --Table 7
 -- Shared thread: comments on the wishlist/group itself (not tied to one item)
 CREATE TABLE IF NOT EXISTS group_comments

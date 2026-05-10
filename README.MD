@@ -28,7 +28,7 @@ Cart-It is a full-stack product: a **React** web app, a **Node.js** + **Express*
 | **Price & stock** | **Price-drop** and **out-of-stock** awareness via **in-app notifications** (and optional **email** if you configure [Resend](https://resend.com)). A background **price check** can run on the server on an interval. |
 | **Notes** | **Private notes** and **list/item comments** from the **extension** or the **web app** (cart, wishlist, item views). |
 | **Account** | **Sign up / log in**, **forgot password** with **email link** to reset (via Resend + `FRONTEND_URL`), **log out**. |
-| **Offers** | From your cart, open each store’s **official offers** page (hand-picked URLs for common retailers). The API also exposes a small **curated retailer hub** list. Cart-It does **not** aggregate third-party promo codes or guarantee discounts. |
+| **Coupons** | A **Coupons / Offers** page with **curated retailer hub links** only (`GET /api/public/curated-coupons`). No user-saved promo database or ranking loop — users confirm deals on each retailer’s site. |
 | **Housekeeping** | **Rename** wishlists, **remove** items, **move** items between lists, **mark purchased**, and more from the dashboard and list views. |
 
 > **Note:** A **“recently deleted” / restore** flow is a natural next feature; today, removing an item is typically **permanent** after confirm. See [Roadmap](#roadmap).
@@ -38,11 +38,11 @@ Cart-It is a full-stack product: a **React** web app, a **Node.js** + **Express*
 ## Repository layout
 
 ```
-Cart_It/
-├── cart-it-frontend/     # React (CRA) + Tailwind — landing, dashboard, cart, wishlists, offers hub, auth
-├── server/               # Express + TypeScript + PostgreSQL — REST API, ScrapingBee helpers, jobs
-├── extension/            # Chrome/Edge MV3 — side panel, background, content scripts
-└── README.md
+Update-Cart-It/
+├── cart-it-frontend/    # React (CRA) + Tailwind — landing, dashboard, cart, wishlists, Offers (/coupons), auth
+├── server/              # Express + TypeScript + PostgreSQL — REST API, ScrapingBee helpers, jobs
+├── extension/           # Chrome/Edge MV3 — side panel, background, content scripts
+└── README.MD
 ```
 
 ---
@@ -145,14 +145,9 @@ Configure `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `FRONTEND_URL`, and `JWT_SECRET
 
 ---
 
-## Official offers
+## Offers (retailer links)
 
-The **Offers** page is a simple **link hub** to retailer-published pages (not a third-party promo-code product):
-
-- **Stores in your cart** — For each product domain, Cart-It opens that retailer’s **official offers** URL when we have a mapping; otherwise it falls back to the store’s site.
-- **Curated retailer list** — A public read-only endpoint returns hand-maintained rows (store name, optional offers URL, labels). Users open **Open official offers** in a new tab.
-
-The repo may still contain unused tables or routes from earlier coursework iterations; what this README describes is **official-offer links only**.
+The **Coupons / Offers** page uses **curated retailer hub links** only (`GET /api/public/curated-coupons`). Cart-It does not scrape third-party coupon aggregators; promos are always verified on the retailer’s own site.
 
 ---
 
@@ -171,8 +166,7 @@ Typical production split:
 ## Roadmap / ideas
 
 - **Recently deleted** bucket with restore (soft-delete for cart items).
-- Deeper **retailer-specific** offer links (more domains, regional storefronts).
-- Optional **affiliate-safe** integrations if you later want syndicated offers with clear sourcing.
+- Stronger **offers** integrations (affiliate/partner feeds, approved syndication APIs) if you expand beyond curated retailer links.
 
 ---
 
