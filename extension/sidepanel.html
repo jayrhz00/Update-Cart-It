@@ -226,6 +226,16 @@
         text-transform: uppercase;
         color: #94a3b8;
       }
+      .page-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 14px;
+        margin: 0 0 14px;
+      }
+      .page-actions .link-btn {
+        margin-top: 0;
+      }
       #capturePreviewImg {
         display: block;
         max-width: 100%;
@@ -373,19 +383,22 @@
         <!-- SAVE TAB -->
         <div id="savePanel" class="tab-panel active">
           <div class="popup-header">
-            <img src="icon.png" alt="cart-It" />
+            <img src="store-logo-128.png" width="32" height="32" alt="cart-It" />
             <h3>cart-It</h3>
           </div>
           
           <p id="tabHint" aria-live="polite"></p>
 
+          <div class="page-actions">
+            <button type="button" id="aiSummarizeBtn" class="link-btn" style="color:#8b5cf6">
+              ✨ AI Summarize
+            </button>
+            <button type="button" id="reScrapeBtn" class="link-btn">Refresh page data</button>
+          </div>
+
           <div id="capturePreview" class="capture-preview" hidden>
             <div class="capture-preview-header">
               <span class="capture-preview-label">Captured from page</span>
-              <div style="display:flex;gap:8px">
-                <button type="button" id="aiSummarizeBtn" class="link-btn" style="margin:0;padding:2px;color:#8b5cf6">✨ AI Summarize</button>
-                <button type="button" id="reScrapeBtn" class="link-btn" style="margin:0;padding:2px">Refresh</button>
-              </div>
             </div>
             <img id="capturePreviewImg" alt="" />
             <p id="capturePreviewDesc"></p>
@@ -429,7 +442,7 @@
         <!-- WISHLIST TAB -->
         <div id="wishlistPanel" class="tab-panel">
           <div class="popup-header">
-            <img src="icon.png" alt="cart-It" />
+            <img src="store-logo-128.png" width="32" height="32" alt="cart-It" />
             <h3>Your Items</h3>
           </div>
           <div id="wishlistItemsContainer">
@@ -442,7 +455,7 @@
         <!-- ACCOUNT TAB -->
         <div id="accountPanel" class="tab-panel">
           <div class="popup-header">
-            <img src="icon.png" alt="cart-It" />
+            <img src="store-logo-128.png" width="32" height="32" alt="cart-It" />
             <h3>Account</h3>
           </div>
           

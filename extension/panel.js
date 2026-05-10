@@ -7,13 +7,28 @@ const FALLBACK_LOCAL_API =
     ? CART_IT_CONFIG.fallbackLocalApi
     : "http://127.0.0.1:5001";
 
+/** Drop BNPL/shipping-style amounts when a larger cluster of prices exists (Fashion Nova–style pages). */
+function pickRepresentativePrice(arr) {
+  const vals = [...new Set(arr.filter((n) => typeof n === "number" && n > 0 && n < 1_000_000))].sort(
+    (a, b) => a - b
+  );
+  if (!vals.length) return null;
+  if (vals.length === 1) return vals[0];
+  const lo = vals[0];
+  const hi = vals[vals.length - 1];
+  if (hi / lo < 3) return lo;
+  const med = vals[Math.floor(vals.length / 2)];
+  const filtered = vals.filter((p) => !(p < med * 0.35 && p < 20));
+  return filtered.length ? Math.min(...filtered) : lo;
+}
+
 /** Runs in the product tab — name, price, image, store from the page. */
 function getPageData() {
   const textFromScript = (selector) => {
     const el = document.querySelector(selector);
     return el?.textContent || "";
   };
-  const ogImage =
+  const ogImageRaw =
     document.querySelector('meta[property="og:image"]')?.content ||
     document.querySelector('meta[name="twitter:image"]')?.content ||
     document.querySelector('link[rel="image_src"]')?.href ||
@@ -42,6 +57,9 @@ function getPageData() {
   };
 
   const isAmazon = /\.amazon\./i.test(location.hostname);
+  const hostNorm = (location.hostname || "").replace(/^www\./, "").toLowerCase();
+  const isShein = hostNorm.includes("shein");
+
   const getAmazonPrice = () => {
     const selectors = [
       "#corePriceDisplay_desktop_feature_div .a-price .a-offscreen",
@@ -102,7 +120,7 @@ function getPageData() {
 
   const pickNearCartPriceFromText = (text) => {
     const prices = [];
-    const re = /\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
+    const re = /(?:US\$|\$)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
     let m;
     while ((m = re.exec(text)) !== null) {
       if (looksLikeSavingsAmount(text, m.index, m[0].length)) continue;
@@ -110,50 +128,140 @@ function getPageData() {
       if (p != null && p >= 0.01 && p < 1_000_000) prices.push(p);
     }
     if (!prices.length) return null;
-    return Math.min(...prices);
+    return pickRepresentativePrice(prices);
   };
 
   const priceNearPrimaryAddToCart = () => {
     const candidates = Array.from(
       document.querySelectorAll(
-        'button[name="add"], button[id*="AddToCart"], button[class*="add-to-cart"], [data-add-to-cart], .cider-add-to-cart-btn'
+        'button[name="add"], button[id*="AddToCart"], button[class*="add-to-cart"], [data-add-to-cart], .cider-add-to-cart-btn, button[type="button"], [class*="add-cart"], [class*="addToCart"]'
       )
     );
-    const btn = candidates.find((b) => /cart|bag|checkout|buy now/i.test(b.textContent || ""));
+    const btn = candidates.find((b) =>
+      /add\s*to\s*cart|cart|bag|checkout|buy\s*now/i.test(b.textContent || "")
+    );
     if (!btn) return null;
+    const collected = [];
     let node = btn;
-    for (let depth = 0; depth < 8 && node; depth++, node = node.parentElement) {
-      const text = (node.innerText || "").slice(0, 2000);
-      const picked = pickNearCartPriceFromText(text);
-      if (picked != null) return picked;
+    for (let depth = 0; depth < 12 && node; depth++, node = node.parentElement) {
+      const text = (node.innerText || "").slice(0, 4000);
+      const re = /(?:US\$|\$)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        if (looksLikeSavingsAmount(text, m.index, m[0].length)) continue;
+        const p = parsePriceText(m[1]);
+        if (p != null && p >= 0.01 && p < 1_000_000) collected.push(p);
+      }
     }
-    return null;
+    return collected.length ? pickRepresentativePrice(collected) : null;
   };
 
   const extractJsonLdProductPrice = () => {
+    const cands = [];
+    const pushOffer = (o) => {
+      const p = parsePriceText(o?.price ?? o?.lowPrice ?? o?.highPrice);
+      if (p != null && p > 0) cands.push(p);
+    };
+    const walk = (root) => {
+      if (!root || typeof root !== "object") return;
+      const offers = root.offers;
+      if (offers) {
+        const list = Array.isArray(offers) ? offers : [offers];
+        for (const o of list) pushOffer(o);
+      }
+      if (Array.isArray(root["@graph"])) for (const g of root["@graph"]) walk(g);
+    };
     const scripts = document.querySelectorAll('script[type="application/ld+json"]');
     for (const node of scripts) {
       try {
         const data = JSON.parse(node.textContent);
         const roots = Array.isArray(data) ? data : [data];
-        for (const root of roots) {
-          const offers = root.offers || root["@graph"]?.find(g => g.offers)?.offers;
-          if (offers) {
-            const list = Array.isArray(offers) ? offers : [offers];
-            for (const o of list) {
-              const p = parsePriceText(o.price || o.lowPrice);
-              if (p != null && p > 0) return p;
-            }
-          }
-        }
+        for (const root of roots) walk(root);
       } catch (_) {}
     }
-    return null;
+    return cands.length ? pickRepresentativePrice(cands) : null;
   };
 
-  let price = isAmazon ? (getAmazonPrice() ?? getAmazonPriceFromBuybox()) : extractJsonLdProductPrice();
+  const getSheinPrice = () => {
+    const cands = [];
+    const add = (raw) => {
+      const p = parsePriceText(String(raw).trim());
+      if (p != null && p >= 0.5 && p < 50000) cands.push(p);
+    };
+    const scope =
+      document.querySelector("#productMainColumnId, #goodsDetailAnchor, [id*='goodsDetail'], main") ||
+      document.body;
+    const chunk = (scope.innerText || "").replace(/\s+/g, " ").slice(0, 16000);
+    const usdRe = /(?:US\$|\$)\s*(\d{1,5}\.\d{2})\b/g;
+    let m;
+    while ((m = usdRe.exec(chunk)) !== null) {
+      add(m[1]);
+    }
+    document.querySelectorAll('[class*="price"], [class*="Price"]').forEach((el) => {
+      const t = (el.textContent || "").replace(/\s+/g, " ");
+      if (!/(?:US\$|\$)\s*\d/.test(t)) return;
+      const mm = t.match(/(?:US\$|\$)\s*(\d{1,5}\.\d{2})/);
+      if (mm) add(mm[1]);
+    });
+    if (!cands.length) {
+      const salePair = chunk.match(
+        /\b(\d{1,3}\.\d{2})\b[\s\S]{0,120}(?:US\$|\$)\s*(\d{1,3}\.\d{2})\b/
+      );
+      if (salePair) {
+        add(salePair[1]);
+        add(salePair[2]);
+      }
+    }
+    if (!cands.length) {
+      document.querySelectorAll("script:not([src])").forEach((s) => {
+        const t = s.textContent || "";
+        if (t.length < 80 || t.length > 900000) return;
+        if (!/salePrice|retailPrice|"price"|goods_id|productInfo/i.test(t)) return;
+        for (const mm of t.matchAll(
+          /"(?:sale_price|salePrice|retail_price|retailPrice|unit_discount_price|price)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/gi
+        )) {
+          add(mm[1]);
+        }
+      });
+    }
+    if (!cands.length) return null;
+    return pickRepresentativePrice([...new Set(cands)]);
+  };
 
-  if (price == null) {
+  const pickSheinProductImage = () => {
+    const imgs = Array.from(document.querySelectorAll('img[src*="ltwebstatic.com"], img[src*="shein"]'));
+    let best = "";
+    let bestScore = -1e9;
+    for (const img of imgs) {
+      const src = (img.currentSrc || img.src || "").trim();
+      if (!src || src.startsWith("data:")) continue;
+      if (/logo|icon|sprite|badge|banner|avatar|emoji|payment|trustpilot|footer/i.test(src)) continue;
+      let score = 0;
+      const dim = src.match(/_(\d{2,4})x(\d{2,4})/);
+      if (dim) score += parseInt(dim[1], 10) * parseInt(dim[2], 10);
+      else score += 8000;
+      if (/list_?0|thumb|thumbnail|small|mini|_s\.|_xs\.|\b150x|\b220x/i.test(src)) score -= 400000;
+      if (/\/large\/|\b850x|\b900x|\b1000x|origin|imresize|big/i.test(src)) score += 350000;
+      const alt = (img.getAttribute("alt") || "").toLowerCase();
+      if (alt.length > 8 && !/shein\.com|women|curve|home|close|zoom|size/i.test(alt)) score += 12000;
+      if (score > bestScore) {
+        bestScore = score;
+        best = src;
+      }
+    }
+    return best;
+  };
+
+  let price = null;
+  if (isAmazon) {
+    price = getAmazonPrice() ?? getAmazonPriceFromBuybox();
+  } else if (isShein) {
+    price = getSheinPrice() ?? extractJsonLdProductPrice() ?? priceNearPrimaryAddToCart();
+  } else {
+    price = extractJsonLdProductPrice();
+  }
+
+  if (price == null && !isAmazon) {
     const genericSels = [
       ".price", ".product-price", ".sale-price", ".current-price",
       ".product__price", ".pdp-price", ".cider-product-price",
@@ -163,14 +271,14 @@ function getPageData() {
     ];
     const foundPrices = [];
     for (const sel of genericSels) {
-      document.querySelectorAll(sel).forEach(el => {
+      document.querySelectorAll(sel).forEach((el) => {
         const raw = el.textContent || el.getAttribute("content") || "";
         if (looksLikeSavingsAmount(raw, 0, raw.length)) return;
         const p = parsePriceText(raw);
         if (p != null && p > 0) foundPrices.push(p);
       });
     }
-    if (foundPrices.length) price = Math.min(...foundPrices);
+    if (foundPrices.length) price = pickRepresentativePrice(foundPrices);
   }
 
   if (price == null) price = priceNearPrimaryAddToCart();
@@ -226,10 +334,26 @@ function getPageData() {
   };
   const finalUrl = stripTrackingParams(location.href).trim();
 
+  let image_url = (ogImageRaw || "").trim();
+  if (isShein) {
+    const sheinImg = pickSheinProductImage();
+    if (sheinImg) image_url = sheinImg;
+  } else if (
+    image_url &&
+    /logo|og-default|placeholder|favicon|sprite/i.test(image_url) &&
+    !/ltwebstatic|cloudinary|img\./i.test(image_url)
+  ) {
+    const fallbackImg =
+      document.querySelector('meta[property="og:image:secure_url"]')?.content ||
+      document.querySelector('article img[src^="http"], main img[src^="http"]')?.src ||
+      "";
+    if (fallbackImg && !/logo/i.test(fallbackImg)) image_url = fallbackImg;
+  }
+
   return {
     item_name: finalName.slice(0, 250),
     product_url: finalUrl,
-    image_url: ogImage || "",
+    image_url,
     product_description: product_description.slice(0, 1000),
     store: location.hostname.replace(/^www\./, "").slice(0, 95),
     current_price: price != null ? price : 0,
@@ -308,7 +432,8 @@ function setCapturePreview(result) {
   if (!wrap || !imgEl || !descEl) return;
   const img = (result?.image_url && String(result.image_url).trim()) || "";
   const desc = (result?.product_description && String(result.product_description).trim()) || "";
-  if (!img && !desc) {
+  const title = (result?.item_name && String(result.item_name).trim()) || "";
+  if (!img && !desc && !title) {
     wrap.hidden = true;
     imgEl.removeAttribute("src");
     descEl.textContent = "";
@@ -326,9 +451,10 @@ function setCapturePreview(result) {
     imgEl.hidden = true;
     imgEl.removeAttribute("src");
   }
-  if (desc) {
+  const descText = desc || title;
+  if (descText) {
     descEl.hidden = false;
-    descEl.textContent = desc.length > 220 ? `${desc.slice(0, 217)}…` : desc;
+    descEl.textContent = descText.length > 220 ? `${descText.slice(0, 217)}…` : descText;
   } else {
     descEl.hidden = true;
     descEl.textContent = "";

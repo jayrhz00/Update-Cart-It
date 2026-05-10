@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "cart-It",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "Save items from any site, collaborate and chat in shared lists, track prices and stock, and add notes.",
   "background": {
     "scripts": [
@@ -13,15 +13,19 @@
     "default_title": "cart-It",
     "default_popup": "sidepanel.html",
     "default_icon": {
-      "48": "icon-48.png",
-      "96": "icon-96.png",
-      "128": "icon-128.png"
+      "16": "store-logo-128.png",
+      "32": "store-logo-128.png",
+      "48": "store-logo-128.png",
+      "96": "store-logo-128.png",
+      "128": "store-logo-128.png"
     }
   },
   "icons": {
-    "48": "icon-48.png",
-    "96": "icon-96.png",
-    "128": "icon-128.png"
+    "16": "store-logo-128.png",
+    "32": "store-logo-128.png",
+    "48": "store-logo-128.png",
+    "96": "store-logo-128.png",
+    "128": "store-logo-128.png"
   },
   "permissions": [
     "activeTab",
